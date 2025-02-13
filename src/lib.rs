@@ -25,39 +25,84 @@ macro_rules! assert_dimension {
 
 #[cfg(test)]
 mod tests {
+    use core::error;
+
     use super::*;
 
     #[test]
-    fn main() {
+    fn test_stuff() {
         // Tensor of lengths
         let mass = Scalar::<Mass>::new::<Kilogram>([10.0]);
         let force = Vec2::<Force>::new::<Newton>([10.0, 20.0]);
 
-        let mut vel1 = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0]);
+        //let error = mass + force; // error (expected)
 
-        //let acc = div!(force, mass); // works
+        let mass = mass + Scalar::<Mass>::new::<Gram>([5.0]); // works
+        println!("{}", mass);
+        /*
+        Tensor [1x1]: M^1
+        ( 15 )
+        */
+
         let acc = force.scale(mass.inv()); // works
+        println!("{}", acc);
+        /*
+        Tensor [2x1]: L^1 * T^-2
+        ( 0.6666667 )
+        ( 1.3333334 )
+        */
 
         let time = Scalar::<Time>::from::<Second>(1.0);
+        let vel1 = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0]);
 
         let vel2 = vel1 + acc.scale(time); // works
-
         println!("{:?}", vel2.get::<MetersPerSecond>());
+        /*
+        [10.666667, 21.333334]
+        */
 
         // try to transpose a tensor
         let tensor = Tensor::<Dimensionless, 1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         let tensor_transposed = tensor.transpose();
         println!("{}", tensor);
         println!("{}", tensor_transposed);
+        /*
+        Tensor [1x6]: Dimensionless
+        ( 1  2  3  4  5  6 )
+
+        Tensor [6x1]: Dimensionless
+        ( 1 )
+        ( 2 )
+        ( 3 )
+        ( 4 )
+        ( 5 )
+        ( 6 )
+         */
 
         let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
 
         // now try and dot product length and force
         let dot_product = dot!(length, force);
-
         println!("{}", dot_product);
+        /*
+        Tensor [1x1]: L^2 * M^1 * T^-2
+        ( 50 )
+        */
 
-        assert_dimension!(dot_product, Energy);
+        assert_dimension!(dot_product, Energy); // works
+        //assert_dimension!(dot_product, Force); // error (expected)
+
+        let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m2 = Matrix::<Length, 3, 2>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+
+        let m3 = m1 * m2;
+        println!("{}", m3);
+        /*
+        Tensor [2x2]: L^2
+        ( 22  28 )
+        ( 49  64 )
+        */
+
 
         // test openrators
         if (vel1 == vel2) {

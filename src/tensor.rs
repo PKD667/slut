@@ -43,6 +43,13 @@ where
             .unwrap()
     }
 
+    pub fn set_at(&mut self, row: usize, col: usize, value: Scalar<D>) {
+        assert!(row < ROWS && col < COLS);
+        let idx = row * COLS + col;
+        self.data[idx] = value.data[0];
+    }
+
+
 
 }
 
@@ -266,6 +273,29 @@ where
         Tensor {
             data,
             _phantom: PhantomData::<D::Output>,
+        }
+    }
+}
+
+// implement negation for all tensors
+impl<D, const ROWS: usize, const COLS: usize> Neg for Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        let data: [STYPE; ROWS * COLS] = self
+            .data
+            .iter()
+            .map(|&v| -v)
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Self {
+            data,
+            _phantom: PhantomData,
         }
     }
 }
