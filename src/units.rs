@@ -45,6 +45,17 @@ pub trait Unit {
         Self::parameters().name
     }
 }
+
+// Unitless trait unit
+pub struct Unitless;
+impl Unit for Unitless {
+    type Dimension = Dimensionless;
+    fn parameters() -> UnitParameters {
+        UnitParameters { scale: 1.0, offset: 0.0, symbol: "", name: "Unitless" }
+    }
+}
+
+
 // ---------- Length Units ----------
 
 // Existing length units
@@ -231,9 +242,9 @@ impl Unit for KilometersPerHour {
 
 // ---------- Acceleration Unit ----------
 
-pub struct MeterPerSecondSquared;
+pub struct MetersPerSecondSquared;
 
-impl Unit for MeterPerSecondSquared {
+impl Unit for MetersPerSecondSquared {
     // Assuming that the Acceleration dimension is defined (derived as Length/Time²)
     type Dimension = Acceleration;
     fn parameters() -> UnitParameters {

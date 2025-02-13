@@ -5,6 +5,8 @@ use std::ops::*;
 use crate::dimension::Dimension;
 use crate::dimension::MultiplyDimensions;
 use crate::dimension::InvertDimension;
+use crate::dimension::NormalizeDimension;
+use crate::dimension::AutoNormalize;
 
 #[derive(Copy, Clone)]
 pub struct Tensor<D, const ROWS: usize, const COLS: usize>
@@ -39,6 +41,17 @@ where
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
+    }
+
+    /// Converts the tensor’s phantom dimension to its normalized (canonical) form.
+    pub fn dim_normalized(self) -> Tensor<<D as AutoNormalize>::Normalized, ROWS, COLS>
+    where
+        D: AutoNormalize,
+    {
+        Tensor {
+            data: self.data,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -182,16 +195,16 @@ impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
 {
-    /// Multiplies every element of the tensor by a scalar.
-    ///
-    /// The scalar is provided as a 1×1 tensor, and the result's dimension
-    /// is the product of the original tensor’s dimension and the scalar’s dimension.
+    /// Multiplies every element of the tensor by a scalar and auto-normalizes its dimension.
+    /// The result's dimension is the product of the original tensor’s dimension and 
+    /// the scalar’s dimension, normalized automatically.
     pub fn scale<DS>(
         self,
         scalar: Tensor<DS, 1, 1>,
-    ) -> Tensor<<D as MultiplyDimensions<DS>>::Output, ROWS, COLS>
+    ) -> Tensor<< <D as MultiplyDimensions<DS>>::Output as AutoNormalize>::Normalized, ROWS, COLS>
     where
         D: MultiplyDimensions<DS>,
+        <D as MultiplyDimensions<DS>>::Output: AutoNormalize,
         [(); ROWS * COLS]:,
     {
         let s = scalar.data[0];
@@ -199,16 +212,55 @@ where
             .data
             .iter()
             .map(|&v| v * s)
-            .collect::<Vec<_>>()
+            .collect::<Vec<STYPE>>()
             .try_into()
             .unwrap();
 
         Tensor {
             data,
-            _phantom: PhantomData::<<D as MultiplyDimensions<DS>>::Output>,
+            _phantom: PhantomData::< <D as MultiplyDimensions<DS>>::Output>,
+        }
+        .dim_normalized() // calls AutoNormalize::auto_normalize through dim_normalized
+    }
+}
+
+// zero an N*M tensor
+impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    pub fn zero() -> Self {
+        let data: [STYPE; ROWS * COLS] = [0.0; ROWS * COLS];
+
+        Tensor {
+            data,
+            _phantom: PhantomData,
         }
     }
 }
+
+//impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+//where
+//    [(); ROWS * COLS]:,
+//{
+//    pub fn div<DS>(
+//        self,
+//        scalar: Tensor<DS, 1, 1>,
+//    ) -> Tensor<
+//        <<D as MultiplyDimensions<<DS as InvertDimension>::Output>>::Output as AutoNormalize>::Normalized,
+//        ROWS,
+//        COLS
+//    >
+//    where
+//        DS: InvertDimension,
+//        D: MultiplyDimensions<<DS as InvertDimension>::Output>,
+//        // Add the missing bound here:
+//        <D as MultiplyDimensions<<DS as InvertDimension>::Output>>::Output: AutoNormalize,
+//        [(); ROWS * COLS]:,
+//    {
+//        self.scale(scalar.inv())
+//    }
+//}
 
 // invert a scalar
 impl<D> Tensor<D, 1, 1>
@@ -245,6 +297,46 @@ where
     }
 }
 
+
+impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    /// Returns the transpose of this tensor.
+    pub fn transpose(self) -> Tensor<D, COLS, ROWS>
+    where
+        [(); COLS * ROWS]:,
+    {
+        let mut transposed = vec![0.0; ROWS * COLS];
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                // Element at (i, j) moves to (j, i)
+                transposed[j * ROWS + i] = self.data[i * COLS + j];
+            }
+        }
+        // Use `COLS * ROWS` in the type annotation to match the expected array length.
+        let data: [STYPE; COLS * ROWS] = transposed
+            .into_iter()
+            .collect::<Vec<STYPE>>()
+            .try_into()
+            .unwrap();
+
+        Tensor::<D, COLS, ROWS> {
+            data,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+// implement dot product as a macro that combines transpose and multiply
+#[macro_export]
+macro_rules! dot {
+    ($a:ident, $b:ident) => {
+        $a.transpose() * $b
+    };
+}
+
+
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
@@ -261,7 +353,13 @@ where
     [(); ROWS * COLS]:,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Tensor<{}, {}>:\n", ROWS, COLS)?;
+        write!(
+            f,
+            "Tensor<Dimension = {}, Rows = {}, Cols = {}>:\n",
+            std::any::type_name::<D>(),
+            ROWS,
+            COLS
+        )?;
         write!(f, "(")?;
         for i in 0..ROWS {
             write!(f, "(")?;
@@ -269,11 +367,10 @@ where
                 write!(f, "{:.2} ", self.data[i * COLS + j])?;
             }
             write!(f, ")")?;
-            if (i + 1) < ROWS {
+            if i + 1 < ROWS {
                 write!(f, "\n ")?;
             }
         }
-        write!(f, ")")?;
-        Ok(())
+        write!(f, ")")
     }
 }

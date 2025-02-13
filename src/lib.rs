@@ -1,4 +1,4 @@
-#![feature(generic_const_exprs,trait_alias)]
+#![feature(generic_const_exprs, trait_alias)]
 
 pub mod tensor;
 use tensor::*;
@@ -9,7 +9,6 @@ use dimension::*;
 pub mod units;
 use units::*;
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -17,17 +16,31 @@ mod tests {
     #[test]
     fn main() {
         // Tensor of lengths
-        let vel = Vec2::<Velocity>::new::<MetersPerSecond>([3.0, 4.0]);
+        let mass = Scalar::<Mass>::new::<Kilogram>([10.0]);
+        let force = Vec2::<Force>::new::<Newton>([10.0, 20.0]);
 
-        let dt = Scalar::<Time>::new::<Second>([10.0]);
+        let mut vel = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0]);
 
-        let dist = vel.scale(dt);
+        //let acc = div!(force, mass); // works
+        let acc = force.scale(mass.inv()); // works
 
-        print!("{:?}", dist.get::<Kilometer>());
+        let time = Scalar::<Time>::new::<Second>([1.0]);
 
-        let acc = vel.scale(dt.inv());
+        vel = vel + acc.scale(time); // works
 
-        print!("{:?}", acc.get::<MeterPerSecondSquared>());
+        println!("{:?}", vel.get::<MetersPerSecond>());
+
+        // try to transpose a tensor
+        let tensor = Tensor::<Dimensionless, 1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let tensor_transposed = tensor.transpose();
+        println!("{}", tensor);
+        println!("{}", tensor_transposed);
+        
+        let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
+
+        // now try and dot product length and force
+        let dot_product = dot!(length, force);
+
+        println!("{}", dot_product);
     }
 }
-
