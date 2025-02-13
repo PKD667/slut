@@ -448,3 +448,12 @@ impl Unit for Ampere {
 }
 
 
+// ---------- Additional Example: Thermal Conductivity Units ----------
+pub struct WattPerMeterKelvin;
+
+impl Unit for WattPerMeterKelvin {
+    type Dimension = ThermalConductivity;
+    fn parameters() -> UnitParameters {
+        UnitParameters { scale: 1.0, offset: 0.0, symbol: "W/(m·K)", name: "WattPerMeterKelvin" }
+    }
+}

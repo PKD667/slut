@@ -2,11 +2,11 @@ use crate::units::{Unit, STYPE};
 use std::marker::PhantomData;
 use std::ops::*;
 
+
 use crate::dimension::Dimension;
-use crate::dimension::MultiplyDimensions;
 use crate::dimension::InvertDimension;
-use crate::dimension::NormalizeDimension;
-use crate::dimension::AutoNormalize;
+use crate::dimension::MultiplyDimensions;
+
 
 #[derive(Copy, Clone)]
 pub struct Tensor<D, const ROWS: usize, const COLS: usize>
@@ -43,16 +43,7 @@ where
             .unwrap()
     }
 
-    /// Converts the tensor’s phantom dimension to its normalized (canonical) form.
-    pub fn dim_normalized(self) -> Tensor<<D as AutoNormalize>::Normalized, ROWS, COLS>
-    where
-        D: AutoNormalize,
-    {
-        Tensor {
-            data: self.data,
-            _phantom: PhantomData,
-        }
-    }
+
 }
 
 // implement common types of tensors
@@ -196,15 +187,15 @@ where
     [(); ROWS * COLS]:,
 {
     /// Multiplies every element of the tensor by a scalar and auto-normalizes its dimension.
-    /// The result's dimension is the product of the original tensor’s dimension and 
+    /// The result's dimension is the product of the original tensor’s dimension and
     /// the scalar’s dimension, normalized automatically.
     pub fn scale<DS>(
         self,
         scalar: Tensor<DS, 1, 1>,
-    ) -> Tensor<< <D as MultiplyDimensions<DS>>::Output as AutoNormalize>::Normalized, ROWS, COLS>
+    ) -> Tensor<<D as MultiplyDimensions<DS>>::Output, ROWS, COLS>
     where
         D: MultiplyDimensions<DS>,
-        <D as MultiplyDimensions<DS>>::Output: AutoNormalize,
+        <D as MultiplyDimensions<DS>>::Output:,
         [(); ROWS * COLS]:,
     {
         let s = scalar.data[0];
@@ -218,9 +209,8 @@ where
 
         Tensor {
             data,
-            _phantom: PhantomData::< <D as MultiplyDimensions<DS>>::Output>,
+            _phantom: PhantomData::<<D as MultiplyDimensions<DS>>::Output>,
         }
-        .dim_normalized() // calls AutoNormalize::auto_normalize through dim_normalized
     }
 }
 
@@ -279,7 +269,6 @@ where
         }
     }
 }
- 
 
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
@@ -296,7 +285,6 @@ where
         }
     }
 }
-
 
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
@@ -331,15 +319,17 @@ where
 // implement dot product as a macro that combines transpose and multiply
 #[macro_export]
 macro_rules! dot {
-    ($a:ident, $b:ident) => {
-        $a.transpose() * $b
-    };
+    ($a:expr, $b:expr) => {{
+        // Accepts any expression, not just identifiers
+        let a = $a;
+        let b = $b;
+        a.transpose() * b
+    }};
 }
 
-
-impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+impl<D, const ROWS: usize> Tensor<D, ROWS, 1>
 where
-    [(); ROWS * COLS]:,
+    [(); ROWS * 1]:,
 {
     pub fn dist(self, other: Self) -> Tensor<D, 1, 1> {
         // norm of sub
@@ -348,29 +338,125 @@ where
     }
 }
 
-impl<D, const ROWS: usize, const COLS: usize> std::fmt::Display for Tensor<D, ROWS, COLS>
+
+// Implement elementwise equality for all tensors.
+impl<D, const ROWS: usize, const COLS: usize> PartialEq for Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
 {
+    fn eq(&self, other: &Self) -> bool {
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(&a, &b)| a == b)
+    }
+}
+
+// Optionally, if STYPE: Eq then implement Eq.
+impl<D, const ROWS: usize, const COLS: usize> Eq for Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+    STYPE: Eq,
+{
+}
+
+// Implement ordering (>, >=, <, <=) for 1×1 tensors only.
+impl<D> PartialOrd for Tensor<D, 1, 1>
+where
+    [(); 1]:,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.data[0].partial_cmp(&other.data[0])
+    }
+}
+
+// --- Cool init and features
+
+// implement converting a STYPE to a Scalar tensor
+impl<D> Scalar<D> {
+
+    pub fn from<U: Unit<Dimension = D>>(value: STYPE) -> Self {
+        Scalar { data: [U::to_base(value)], _phantom: PhantomData }
+    }
+}
+
+//implement converting Scalar tensor to a STYPE
+impl<D> Scalar<D> {
+
+    pub fn raw(&self) -> STYPE {
+        self.data[0]
+    }
+}
+
+// implement x() and y() for Vec2
+impl<D> Vec2<D> {
+
+    pub fn x(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[0]],
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn y(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[1]],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+/// ----- NICE PRINTING -----
+
+impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, const N: i32, const J: i32>
+    std::fmt::Display for Dimension<L, M, T, Θ, I, N, J>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "Tensor<Dimension = {}, Rows = {}, Cols = {}>:\n",
-            std::any::type_name::<D>(),
-            ROWS,
-            COLS
-        )?;
-        write!(f, "(")?;
+        // Format nonzero exponents only
+        let mut parts = Vec::new();
+        if L != 0 { parts.push(format!("L^{}", L)); }
+        if M != 0 { parts.push(format!("M^{}", M)); }
+        if T != 0 { parts.push(format!("T^{}", T)); }
+        if Θ != 0 { parts.push(format!("Θ^{}", Θ)); }
+        if I != 0 { parts.push(format!("I^{}", I)); }
+        if N != 0 { parts.push(format!("N^{}", N)); }
+        if J != 0 { parts.push(format!("J^{}", J)); }
+        if parts.is_empty() {
+            write!(f, "Dimensionless")
+        } else {
+            write!(f, "{}", parts.join(" * "))
+        }
+    }
+}
+
+impl<D: std::fmt::Display + Default, const ROWS: usize, const COLS: usize> std::fmt::Display
+    for Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Create a dummy instance of D via Default and let its Display impl format it.
+        writeln!(f, "Tensor [{}x{}]: {}", ROWS, COLS, D::default())?;
         for i in 0..ROWS {
             write!(f, "(")?;
             for j in 0..COLS {
-                write!(f, "{:.2} ", self.data[i * COLS + j])?;
+                write!(f, " {} ", self.data[i * COLS + j])?;
             }
-            write!(f, ")")?;
-            if i + 1 < ROWS {
-                write!(f, "\n ")?;
-            }
+            writeln!(f, ")")?;
         }
-        write!(f, ")")
+        Ok(())
+    }
+}
+
+impl<D: std::fmt::Debug + Default, const ROWS: usize, const COLS: usize> std::fmt::Debug for Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Tensor")
+            .field("dimension", &D::default())
+            .field("shape", &format!("{}x{}", ROWS, COLS))
+            .field("data", &self.data)
+            .finish()
     }
 }
