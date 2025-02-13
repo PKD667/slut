@@ -15,9 +15,9 @@ It's very useful for a lot of things like physics simulation, linear algebra, an
 You can cargo add the library from this repository. You can find all the structures in `dlt::tensor` units in `dlt::units` and all the dimensions in `dlt::dimension`. You can create tensors of any dimension and any unit. You can also perform operations on tensors like addition, subtraction, scaling, dot product, cross product, matrix multiplication, etc.
 
 ```rust
-use tensor::*;
-use dimension::*;
-use units::*;
+use dlt::tensor::*;
+use dlt::dimension::*;
+use dlt::units::*;
 
 let t = Tensor::<Length, 2, 1>::new::<Meter>([1.0, 2.0]);
 let v = Vec2::<Force>::new::<Lbf>([1.0, 2.0]);
@@ -26,6 +26,11 @@ let m = Mat3::<Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
 
 ## Example
 ```rust
+
+        use dlt::tensor::*;
+        use dlt::dimension::*;
+        use dlt::units::*;
+
         // Tensor of lengths
         let mass = Scalar::<Mass>::new::<Kilogram>([10.0]);
         let force = Vec2::<Force>::new::<Newton>([10.0, 20.0]);
