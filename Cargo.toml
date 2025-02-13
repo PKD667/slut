@@ -2,6 +2,8 @@
 name = "dlt" # Dimensioned Tensor Library
 version = "0.1.1"
 edition = "2021"
+license = "MIT"
+description = "Library for Vectors and Matrices with Physical Dimensions. Basically `uom` but in a vector space."
 
 [lib]
 name = "dlt"# Dimensioned Tensor Library
