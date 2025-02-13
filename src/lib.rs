@@ -41,15 +41,15 @@ mod tests {
         println!("{}", mass);
         /*
         Tensor [1x1]: M^1
-        ( 15 )
+        ( 10.005 )
         */
 
         let acc = force.scale(mass.inv()); // works
         println!("{}", acc);
         /*
         Tensor [2x1]: L^1 * T^-2
-        ( 0.6666667 )
-        ( 1.3333334 )
+        ( 0.9995002 )
+        ( 1.9990004 )
         */
 
         let time = Scalar::<Time>::from::<Second>(1.0);
