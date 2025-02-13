@@ -36,15 +36,15 @@ let m = Mat3::<Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
         println!("{}", mass);
         /*
         Tensor [1x1]: M^1
-        ( 15 )
+        ( 10.005 )
         */
 
         let acc = force.scale(mass.inv()); // works
         println!("{}", acc);
         /*
         Tensor [2x1]: L^1 * T^-2
-        ( 0.6666667 )
-        ( 1.3333334 )
+        ( 0.9995002 )
+        ( 1.9990004 )
         */
 
         let time = Scalar::<Time>::from::<Second>(1.0);
@@ -53,7 +53,7 @@ let m = Mat3::<Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
         let vel2 = vel1 + acc.scale(time); // works
         println!("{:?}", vel2.get::<MetersPerSecond>());
         /*
-        [10.666667, 21.333334]
+        [10.9995, 21.999]
         */
 ```
 
