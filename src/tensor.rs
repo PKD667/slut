@@ -22,8 +22,17 @@ where
     [(); ROWS * COLS]:,
 {
     pub fn new<U: Unit<Dimension = D>>(values: [STYPE; ROWS * COLS]) -> Self {
+
+
+        let data: [STYPE; ROWS * COLS] = values
+            .iter()
+            .map(|&v| U::to_base(v))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
         Self {
-            data: values,
+            data,
             _phantom: PhantomData,
         }
     }
