@@ -93,20 +93,50 @@ impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, cons
 
 // Some type aliases for common dimensions.
 pub type Dimensionless = Dimension<0, 0, 0, 0, 0, 0, 0>;
+// L
 pub type Length = Dimension<1, 0, 0, 0, 0, 0, 0>;
-pub type Area = Dimension<2, 0, 0, 0, 0, 0, 0>;
-pub type Volume = Dimension<3, 0, 0, 0, 0, 0, 0>;
+// M
 pub type Mass = Dimension<0, 1, 0, 0, 0, 0, 0>;
+// T
 pub type Time = Dimension<0, 0, 1, 0, 0, 0, 0>;
-pub type Frequency = Dimension<0, 0, -1, 0, 0, 0, 0>;
-pub type Current = Dimension<0, 0, 0, 0, 1, 0, 0>;
+// Θ
 pub type Temperature = Dimension<0, 0, 0, 1, 0, 0, 0>;
+// I
+pub type Current = Dimension<0, 0, 0, 0, 1, 0, 0>;
+// N
 pub type Amount = Dimension<0, 0, 0, 0, 0, 1, 0>;
-pub type Intensity = Dimension<0, 0, 0, 0, 0, 0, 1>;
-pub type Velocity = Dimension<1, 0, -1, 0, 0, 0, 0>;
-pub type Acceleration = Dimension<1, 0, -2, 0, 0, 0, 0>;
-pub type Force = Dimension<1, 1, -2, 0, 0, 0, 0>;
-pub type Energy = Dimension<2, 1, -2, 0, 0, 0, 0>;
-pub type Power = Dimension<2, 1, -3, 0, 0, 0, 0>;
-pub type Pressure = Dimension<-1, 1, -2, 0, 0, 0, 0>;
-pub type ThermalConductivity = Dimension<-1, 1, -3, 0, 0, 0, 1>;
+// J
+pub type LuminousIntensity = Dimension<0, 0, 0, 0, 0, 0, 1>;
+
+
+
+#[macro_export]
+macro_rules! dim_inv {
+    ($dim:tt) => {
+        <$dim as InvertDimension>::Output
+    };
+}
+
+#[macro_export]
+macro_rules! dim_mul {
+    ($lhs:tt, $rhs:tt) => {
+        <$lhs as MultiplyDimensions<$rhs>>::Output
+    };
+}
+
+#[macro_export]
+macro_rules! dim_div {
+    ($lhs:tt, $rhs:tt) => {
+        <$lhs as MultiplyDimensions<<$rhs as InvertDimension>::Output>>::Output
+    };
+}
+
+/// Asserts that the type of `$value` is a Tensor with the expected dimension type.
+/// Returns `$value` on success so that the macro can be used inline.
+#[macro_export]
+macro_rules! assert_dimension {
+    ($value:expr, $expected:ty) => {{
+        let _: Tensor<$expected, _, _> = $value;
+        $value
+    }};
+}

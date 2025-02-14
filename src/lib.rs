@@ -11,21 +11,15 @@ use dimension::*;
 pub mod units;
 use units::*;
 
+pub mod si;
+use si::*;
+
 pub mod utils;  
-use utils::*;
 
-
-#[macro_export]
-macro_rules! assert_dimension {
-    ($value:expr, $expected:ty) => {{
-        // Force type inference by attempting an assignment with annotation.
-        let _: Tensor<$expected, _, _> = $value;
-    }};
-}
 
 #[cfg(test)]
 mod tests {
-    use core::error;
+
 
     use super::*;
 
@@ -82,14 +76,14 @@ mod tests {
         let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
 
         // now try and dot product length and force
-        let dot_product = dot!(length, force);
+        let dot_product = length.dot(length);
         println!("{}", dot_product);
         /*
-        Tensor [1x1]: L^2 * M^1 * T^-2
-        ( 50 )
+        Tensor [1x1]: L^1
+        ( 5 )
         */
 
-        assert_dimension!(dot_product, Energy); // works
+        assert_dimension!(dot_product, Length); // works
         //assert_dimension!(dot_product, Force); // error (expected)
 
         let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
@@ -122,6 +116,21 @@ mod tests {
                 println!("Greater than");
             }
         }
+
+
+        // test macros
+
+        let inv = Scalar::<dim_inv!(Time)>::new::<unit_inv!(Second)>([1.0]);
+
+        let mul = Scalar::<dim_div!(Energy,Temperature)>::new::<unit_div!(Joule, Kelvin)>([1.0]);
+
+        assert_dimension!(mul, Entropy); // works
+        assert_dimension!(inv, Frequency); // works
+
+        println!("{}", inv);
+        println!("{}", mul);
+
+
 
     }
 }

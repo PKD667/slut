@@ -87,14 +87,15 @@ let m = Mat3::<Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
         let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
 
         // now try and dot product length and force
-        let dot_product = dot!(length, force);
+        // dot product saves the dimension of both tensors (ik its weird, i dont make the rules)
+        let dot_product = length.dot(length);
         println!("{}", dot_product);
         /*
         Tensor [1x1]: L^2 * M^1 * T^-2
         ( 50 )
         */
 
-        assert_dimension!(dot_product, Energy); // works
+        assert_dimension!(dot_product, Length); // works
         //assert_dimension!(dot_product, Force); // error (expected)
 
         let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);

@@ -13,8 +13,8 @@ pub struct Tensor<D, const ROWS: usize, const COLS: usize>
 where
     [(); ROWS * COLS]:,
 {
-    data: [STYPE; ROWS * COLS],
-    _phantom: PhantomData<D>,
+    pub(crate) data: [STYPE; ROWS * COLS],
+    pub(crate) _phantom: PhantomData<D>,
 }
 
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
@@ -245,6 +245,31 @@ where
     }
 }
 
+use crate::dimension::Dimensionless;
+
+pub trait ToScalar {
+    fn dless(&self) -> Scalar<Dimensionless>;
+    
+    // convert by specifying the Unit
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension>;
+}
+
+impl ToScalar  for STYPE {
+    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
+        Scalar {
+            data: [*self],
+            _phantom: PhantomData,
+        }
+    }
+
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
+        Scalar {
+            data: [*self],
+            _phantom: PhantomData,
+        }
+    }
+}
+
 //impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 //where
 //    [(); ROWS * COLS]:,
@@ -355,15 +380,21 @@ where
     }
 }
 
-// implement dot product as a macro that combines transpose and multiply
-#[macro_export]
-macro_rules! dot {
-    ($a:expr, $b:expr) => {{
-        // Accepts any expression, not just identifiers
-        let a = $a;
-        let b = $b;
-        a.transpose() * b
-    }};
+// implement dot product (should only take same dimension vectors) 
+impl<D, const N: usize> Tensor<D, N, 1>
+where 
+    [(); N * 1]:,
+{
+    pub fn dot(self, other: Self) -> Tensor<D, 1, 1> {
+        let mut sum = 0.0;
+        for i in 0..N {
+            sum += self.data[i] * other.data[i];
+        }
+        Tensor::<D, 1, 1> {
+            data: [sum],
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<D, const ROWS: usize> Tensor<D, ROWS, 1>
@@ -441,6 +472,45 @@ impl<D> Vec2<D> {
         Scalar::<D> {
             data: [self.data[1]],
             _phantom: PhantomData,
+        }
+    }
+}
+
+// implement x(), y() and z() for Vec3
+impl<D> Vec3<D> {
+
+    pub fn x(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[0]],
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn y(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[1]],
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn z(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[2]],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+// implement += and -= for all tensors
+impl<D, const ROWS: usize, const COLS: usize> AddAssign for Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    fn add_assign(&mut self, other: Self) {
+        for i in 0..ROWS {
+            for j in 0..COLS {
+                self.data[i * COLS + j] += other.data[i * COLS + j];
+            }
         }
     }
 }
