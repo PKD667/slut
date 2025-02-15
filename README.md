@@ -88,7 +88,7 @@ let m = Mat3::<Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
 
         // now try and dot product length and force
         // dot product add the dimensions
-        let dot_product = length.dot(length);
+        let dot_product = dot!(length, force);
         println!("{}", dot_product);
         /*
         Tensor [1x1]: L^2 * M^1 * T^-2
