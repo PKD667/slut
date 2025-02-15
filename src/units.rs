@@ -15,7 +15,7 @@ pub struct UnitParameters {
 
 // Unit trait - defines how to convert to/from base units
 pub trait Unit {
-    type Dimension;  // Associated dimension type
+    type Dimension; // Associated dimension type
     fn parameters() -> UnitParameters;
 
     fn to<S: Unit<Dimension = Self::Dimension>>(value: STYPE) -> STYPE {
@@ -45,6 +45,19 @@ pub trait Unit {
     fn name() -> &'static str {
         Self::parameters().name
     }
+
+    /// Returns the conversion ratio from the current unit into unit T.
+    ///
+    /// The ratio is computed as:
+    /// 
+    ///     self.scale / T::parameters().scale
+    ///
+    /// This function assumes that both units share the same Dimension.
+    fn ratio<T: Unit<Dimension = Self::Dimension>>() -> STYPE {
+        let self_params = Self::parameters();
+        let other_params = T::parameters();
+        self_params.scale / other_params.scale
+    }
 }
 
 // Unitless trait unit
@@ -52,19 +65,24 @@ pub struct Unitless;
 impl Unit for Unitless {
     type Dimension = Dimensionless;
     fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "", name: "Unitless" }
+        UnitParameters {
+            scale: 1.0,
+            offset: 0.0,
+            symbol: "",
+            name: "Unitless",
+        }
     }
 }
-
-
-
+// implement default for Unitless
+impl Default for Unitless {
+    fn default() -> Self {
+        Unitless
+    }
+}
 
 // ---------- MACROS ----------
 
 use std::marker::PhantomData;
-
-// --- UnitMul definition and impl ---
-
 
 // --- UnitMul definition and impl ---
 
@@ -86,12 +104,13 @@ where
         }
     }
 }
+
 // --- UnitInv definition and impl ---
 
 pub struct UnitInv<T: Unit>(PhantomData<T>);
 
-impl<T: Unit> Unit for UnitInv<T> 
-where 
+impl<T: Unit> Unit for UnitInv<T>
+where
     T::Dimension: InvertDimension,
 {
     // Wrap the type expression in parentheses.
@@ -107,7 +126,7 @@ where
     }
 }
 
-// --- Macros for unit multiplication and inversion ---
+// --- Macros for unit multiplication, inversion, division, and ratio ---
 
 #[macro_export]
 macro_rules! unit_mul {
@@ -129,3 +148,4 @@ macro_rules! unit_div {
         UnitMul<$lhs, UnitInv<$rhs>>
     };
 }
+

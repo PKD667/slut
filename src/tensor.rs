@@ -446,13 +446,77 @@ impl<D> Scalar<D> {
     }
 }
 
-//implement converting Scalar tensor to a STYPE
-impl<D> Scalar<D> {
 
+
+/// A trait for converting from STYPE to another type.
+pub trait FromSTYPE: Sized {
+    fn from_stype(value: STYPE) -> Self;
+}
+
+// Implement for STYPE itself (a no‑op conversion)
+impl FromSTYPE for STYPE {
+    fn from_stype(value: STYPE) -> Self {
+        value
+    }
+}
+
+// For example, convert to i32 by rounding.
+impl FromSTYPE for i32 {
+    fn from_stype(value: STYPE) -> Self {
+        value.round() as i32
+    }
+}
+
+// You can add similar implementations for other target types...
+impl FromSTYPE for i64 {
+    fn from_stype(value: STYPE) -> Self {
+        value.round() as i64
+    }
+}
+
+impl<D> Scalar<D> {
+    // Default raw returns STYPE.
     pub fn raw(&self) -> STYPE {
         self.data[0]
     }
+    
+    // Generic raw conversion into any type that implements FromSTYPE.
+    pub fn raw_as<T: FromSTYPE>(&self) -> T {
+        T::from_stype(self.data[0])
+    }
 }
+
+impl<D> Vec2<D> {
+    // Returns a tuple of STYPE (default behavior)
+    pub fn raw_tuple(&self) -> (STYPE, STYPE) {
+        (self.data[0], self.data[1])
+    }
+
+    // Generic conversion for a Vec2 into a tuple of type T.
+    pub fn raw_tuple_as<T: FromSTYPE>(&self) -> (T, T) {
+        (
+            T::from_stype(self.data[0]),
+            T::from_stype(self.data[1]),
+        )
+    }
+}
+
+impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    // Returns a vector of STYPE elements (default behavior)
+    pub fn raw_vec(&self) -> Vec<STYPE> {
+        self.data.to_vec()
+    }
+
+    // Generic conversion for any Tensor into a Vec<T>.
+    pub fn raw_vec_as<T: FromSTYPE>(&self) -> Vec<T> {
+        self.data.iter().map(|&x| T::from_stype(x)).collect()
+    }
+}
+
+
 
 // implement x() and y() for Vec2
 impl<D> Vec2<D> {

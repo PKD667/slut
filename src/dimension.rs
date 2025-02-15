@@ -1,4 +1,8 @@
+use crate::units::*;
+use crate::si::*;
+
 #[derive(Clone, Copy)]
+
 pub struct Dimension<const L: i32, const M: i32, const T: i32, const Θ: i32 = 0, const I: i32 = 0, const N: i32 = 0, const J: i32 = 0>;
 
 // A helper trait for compile‑time addition.
@@ -108,7 +112,76 @@ pub type Amount = Dimension<0, 0, 0, 0, 0, 1, 0>;
 // J
 pub type LuminousIntensity = Dimension<0, 0, 0, 0, 0, 0, 1>;
 
+pub trait BaseUnitForDim {
+    type Unit: crate::units::Unit<Dimension = Self>;
+    fn base_unit() -> Self::Unit;
+}
 
+impl BaseUnitForDim for Dimensionless {
+    type Unit = Unitless;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Length {
+    type Unit = Meter;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Mass {
+    type Unit = Kilogram;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Time {
+    type Unit = Second;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Temperature {
+    type Unit = Kelvin;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Current {
+    type Unit = Ampere;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for Amount {
+    type Unit = Mole;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+impl BaseUnitForDim for LuminousIntensity {
+    type Unit = Candela;
+    fn base_unit() -> Self::Unit {
+        Self::Unit::default()
+    }
+}
+
+// base unit for dimension macro
+#[macro_export]
+macro_rules! base_unit_dim {
+    ($dim:ty) => {
+        <$dim as BaseUnitForDim>::Unit
+    };
+}
+
+// Implement multiplication for dimensions.
 
 #[macro_export]
 macro_rules! dim_inv {
