@@ -380,21 +380,17 @@ where
     }
 }
 
-// implement dot product (should only take same dimension vectors) 
-impl<D, const N: usize> Tensor<D, N, 1>
-where 
-    [(); N * 1]:,
-{
-    pub fn dot(self, other: Self) -> Tensor<D, 1, 1> {
-        let mut sum = 0.0;
-        for i in 0..N {
-            sum += self.data[i] * other.data[i];
-        }
-        Tensor::<D, 1, 1> {
-            data: [sum],
-            _phantom: PhantomData,
-        }
-    }
+
+// implement dot product as macro that does transpose and multiply
+#[macro_export]
+macro_rules! dot {
+    ($a:expr, $b:expr) => {{
+        let a = $a;
+        let b = $b;
+        let a_t = a.transpose();
+        let result = a_t * b;
+        result
+    }};
 }
 
 impl<D, const ROWS: usize> Tensor<D, ROWS, 1>

@@ -76,14 +76,14 @@ mod tests {
         let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
 
         // now try and dot product length and force
-        let dot_product = length.dot(length);
+        let dot_product = dot!(length, force);
         println!("{}", dot_product);
         /*
-        Tensor [1x1]: L^1
-        ( 5 )
+        Tensor [1x1]: L^2 * M^1 * T^-2
+        ( 50 )
         */
 
-        assert_dimension!(dot_product, Length); // works
+        assert_dimension!(dot_product, Energy); // works
         //assert_dimension!(dot_product, Force); // error (expected)
 
         let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
