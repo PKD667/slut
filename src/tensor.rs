@@ -90,6 +90,75 @@ pub type Mat3<D> = Matrix<D, 3, 3>;
 //type alias for a 4x4 matrix
 pub type Mat4<D> = Matrix<D, 4, 4>;
 
+
+// zero an N*M tensor
+impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    pub fn zero() -> Self {
+        let data: [c64; ROWS * COLS] = [c64::zero(); ROWS * COLS];
+
+        Tensor {
+            data,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+// epsilon scalar
+impl<D> Scalar<D> {
+    pub const EPSILON: Scalar<D> = Scalar {
+        data: [c64 { a: f64::EPSILON, b: 0.0 }],
+        _phantom: PhantomData,
+    };
+}
+
+use crate::dimension::Dimensionless;
+
+pub trait ToScalar {
+    fn dless(&self) -> Scalar<Dimensionless>;
+    
+    // convert by specifying the Unit
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension>;
+}
+
+impl ToScalar  for c64 {
+    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
+        Scalar {
+            data: [*self],
+            _phantom: PhantomData,
+        }
+    }
+
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
+        Scalar {
+            data: [*self],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl ToScalar for f64 {
+    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
+        Scalar {
+            data: [self.complex()],
+            _phantom: PhantomData,
+        }
+    }
+
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
+        Scalar {
+            data: [U::to_base(self.complex())],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+// -----------------------------------------
+// ============= OPERATIONS ================
+// -----------------------------------------
+
 impl<D, const ROWS: usize, const COLS: usize> Add for Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
@@ -233,65 +302,6 @@ where
     }
 }
 
-// zero an N*M tensor
-impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
-where
-    [(); ROWS * COLS]:,
-{
-    pub fn zero() -> Self {
-        let data: [c64; ROWS * COLS] = [c64::zero(); ROWS * COLS];
-
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-use crate::dimension::Dimensionless;
-
-pub trait ToScalar {
-    fn dless(&self) -> Scalar<Dimensionless>;
-    
-    // convert by specifying the Unit
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension>;
-}
-
-impl ToScalar  for c64 {
-    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
-        Scalar {
-            data: [*self],
-            _phantom: PhantomData,
-        }
-    }
-
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
-        Scalar {
-            data: [*self],
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl ToScalar for f64 {
-    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
-        Scalar {
-            data: [self.complex()],
-            _phantom: PhantomData,
-        }
-    }
-
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
-        Scalar {
-            data: [U::to_base(self.complex())],
-            _phantom: PhantomData,
-        }
-    }
-}
-
-
-
-
 //impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 //where
 //    [(); ROWS * COLS]:,
@@ -372,6 +382,27 @@ where
     }
 }
 
+// implement conjugate for all tensors
+impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
+where
+    [(); ROWS * COLS]:,
+{
+    pub fn conjugate(self) -> Self {
+        let data: [c64; ROWS * COLS] = self
+            .data
+            .iter()
+            .map(|&v| v.conjugate())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Self {
+            data,
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
@@ -381,38 +412,26 @@ where
     where
         [(); COLS * ROWS]:,
     {
-        let mut transposed = vec![c64::zero(); ROWS * COLS];
+        let mut transposed = [c64::zero(); COLS * ROWS];
         for i in 0..ROWS {
             for j in 0..COLS {
                 // Element at (i, j) moves to (j, i)
                 transposed[j * ROWS + i] = self.data[i * COLS + j];
             }
         }
-        // Use `COLS * ROWS` in the type annotation to match the expected array length.
-        let data: [c64; COLS * ROWS] = transposed
-            .into_iter()
-            .collect::<Vec<c64>>()
-            .try_into()
-            .unwrap();
-
         Tensor::<D, COLS, ROWS> {
-            data,
+            data: transposed,
             _phantom: PhantomData,
         }
     }
-}
 
-
-// implement dot product as macro that does transpose and multiply
-#[macro_export]
-macro_rules! dot {
-    ($a:expr, $b:expr) => {{
-        let a = $a;
-        let b = $b;
-        let a_t = a.transpose();
-        let result = a_t * b;
-        result
-    }};
+    /// Returns the conjugate transpose of this tensor.
+    pub fn conjugate_transpose(self) -> Tensor<D, COLS, ROWS>
+    where
+        [(); COLS * ROWS]:,
+    { 
+        self.transpose().conjugate()
+    }
 }
 
 impl<D, const ROWS: usize> Tensor<D, ROWS, 1>
@@ -425,7 +444,6 @@ where
         sub.norm()
     }
 }
-
 
 // Implement elementwise equality for all tensors.
 impl<D, const ROWS: usize, const COLS: usize> PartialEq for Tensor<D, ROWS, COLS>
@@ -458,7 +476,39 @@ where
     }
 }
 
-// --- Cool init and features
+// implement dot product as macro that does transpose and multiply
+#[macro_export]
+macro_rules! dot {
+    ($a:expr, $b:expr) => {{
+        let a = $a;
+        let b = $b;
+        let a_t = a.transpose();
+        let result = a_t * b;
+        result
+    }};
+}
+
+#[macro_export]
+macro_rules! inner_product {
+    ($a:expr, $b:expr) => {{
+        let a = $a;
+        let b = $b;
+        let a_t = a.conjugate_transpose();
+        let result = a_t * b;
+        result
+    }};
+}
+
+#[macro_export]
+macro_rules! ip {
+    ($x:expr, $y:expr) => {
+        inner_product!($x, $y)
+    }
+}
+
+// -----------------------------------------
+// ============= INIT AND PRINT ============
+// -----------------------------------------
 
 // implement converting a c64 to a Scalar tensor
 impl<D> Scalar<D> {
@@ -600,6 +650,25 @@ impl<D> Vec3<D> {
     }
 }
 
+// implement val() im() and re() for scalar tensors
+impl<D> Scalar<D> {
+
+    pub fn im(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[0].im().complex()],
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn re(&self) -> Scalar<D> {
+        Scalar::<D> {
+            data: [self.data[0].re().complex()],
+            _phantom: PhantomData,
+        }
+    }
+
+}
+
 // implement += and -= for all tensors
 impl<D, const ROWS: usize, const COLS: usize> AddAssign for Tensor<D, ROWS, COLS>
 where
@@ -667,4 +736,39 @@ where
             .field("data", &self.data)
             .finish()
     }
+}
+
+// As a macro
+#[macro_export]
+macro_rules! assert_approx_eq {
+    ($left:expr, $right:expr) => {
+        assert_approx_eq!($left, $right, Scalar::EPSILON);
+    };
+    ($left:expr, $right:expr, $epsilon:expr) => {{
+        let left_val = $left;
+        let right_val = $right;
+        let abs_diff = (left_val - right_val).norm();
+        assert!(
+            abs_diff.im() < $epsilon && abs_diff.re() < $epsilon,
+            "assertion failed: `(left ≈ right)`\n  left: `{}`\n right: `{}`\n  diff: `{}`\n ",
+            left_val, right_val, abs_diff,
+        );
+    }};
+}
+
+// macros for math shit
+#[macro_export]
+macro_rules! cvec {
+    () => {
+        // A 0-element vector; you may also choose to panic.
+        Tensor::<crate::dimension::Dimensionless, 0, 1>::zero()
+    };
+    ($($x:expr),+ $(,)?) => {{
+        // Count the number of elements provided.
+        const N: usize = <[()]>::len(&[$(cvec!(@replace $x)),*]);
+        Tensor::<crate::dimension::Dimensionless, N, 1>::new::<crate::units::Unitless>([
+            $($x.complex()),*
+        ])
+    }};
+    (@replace $_x:expr) => { () };
 }

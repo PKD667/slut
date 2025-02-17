@@ -1,5 +1,7 @@
 use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign}};
 
+
+
 #[derive(Debug, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub struct c64 {
@@ -343,6 +345,11 @@ impl Complexify for c64 {
     }
 }
 
+impl Complexify for (i32, i32) {
+    fn complex(self) -> c64 {
+        c64::new(self.0 as f64, self.1 as f64)
+    }
+}
 
 
 // Implement something to convert a [float, float, float, ..., float] to a [complex, complex, complex, ..., complex]
