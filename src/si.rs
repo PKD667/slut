@@ -2,7 +2,7 @@ use crate::*;
 use crate::units::*;
 use crate::tensor::*;
 use crate::dimension::*;
-
+use crate::complex::c64;
 
 // ----------------------------------
 // =========== SI DIMENSIONS =========
@@ -26,14 +26,24 @@ pub type HeatCapacity = Dimension<2, 1, -2, -1, 0, 0, 0>;
 // =========== SI UNITS =============
 // ----------------------------------
 
-
-// A simple macro to implement Default for zero‐sized unit types.
+// Macro to implement the Unit trait and Default for a unit type.
 #[macro_export]
-macro_rules! default_unit {
-    ($unit:ident) => {
+macro_rules! impl_unit {
+    ($unit:ident, $dimension:ty, $scale:expr, $offset:expr, $symbol:expr, $name:expr) => {
         impl Default for $unit {
             fn default() -> Self {
                 $unit
+            }
+        }
+        impl Unit for $unit {
+            type Dimension = $dimension;
+            fn parameters() -> UnitParameters {
+                UnitParameters {
+                    scale: $scale,
+                    offset: $offset,
+                    symbol: $symbol,
+                    name: $name,
+                }
             }
         }
     };
@@ -49,72 +59,14 @@ pub struct Centimeter;
 pub struct LightYear;
 pub struct Ångström;
 
-default_unit!(Nanometer);
-default_unit!(Micrometer);
-default_unit!(Millimeter);
-default_unit!(Meter);
-default_unit!(Kilometer);
-default_unit!(Centimeter);
-default_unit!(LightYear);
-default_unit!(Ångström);
-
-impl Unit for Nanometer {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-9, offset: 0.0, symbol: "nm", name: "Nanometer" }
-    }
-}
-
-impl Unit for Micrometer {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-6, offset: 0.0, symbol: "µm", name: "Micrometer" }
-    }
-}
-
-impl Unit for Millimeter {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-3, offset: 0.0, symbol: "mm", name: "Millimeter" }
-    }
-}
-
-impl Unit for Meter {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "m", name: "Meter" }
-    }
-}
-
-impl Unit for Kilometer {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1000.0, offset: 0.0, symbol: "km", name: "Kilometer" }
-    }
-}
-
-impl Unit for Centimeter {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 0.01, offset: 0.0, symbol: "cm", name: "Centimeter" }
-    }
-}
-
-impl Unit for LightYear {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        // 1 light year ≈ 9.461e15 meters
-        UnitParameters { scale: 9.461e15, offset: 0.0, symbol: "ly", name: "LightYear" }
-    }
-}
-
-impl Unit for Ångström {
-    type Dimension = Length;
-    fn parameters() -> UnitParameters {
-        // 1 Ångström = 1e-10 meters
-        UnitParameters { scale: 1.0e-10, offset: 0.0, symbol: "Å", name: "Ångström" }
-    }
-}
+impl_unit!(Nanometer, Length, 1.0e-9, 0.0, "nm", "Nanometer");
+impl_unit!(Micrometer, Length, 1.0e-6, 0.0, "µm", "Micrometer");
+impl_unit!(Millimeter, Length, 1.0e-3, 0.0, "mm", "Millimeter");
+impl_unit!(Meter, Length, 1.0, 0.0, "m", "Meter");
+impl_unit!(Kilometer, Length, 1000.0, 0.0, "km", "Kilometer");
+impl_unit!(Centimeter, Length, 0.01, 0.0, "cm", "Centimeter");
+impl_unit!(LightYear, Length, 9.461e15, 0.0, "ly", "LightYear");
+impl_unit!(Ångström, Length, 1.0e-10, 0.0, "Å", "Ångström");
 
 // ---------- Time Units ----------
 pub struct Nanosecond;
@@ -127,312 +79,92 @@ pub struct Day;
 pub struct Year;
 pub struct Century;
 
-default_unit!(Nanosecond);
-default_unit!(Microsecond);
-default_unit!(Millisecond);
-default_unit!(Second);
-default_unit!(Minute);
-default_unit!(Hour);
-default_unit!(Day);
-default_unit!(Year);
-default_unit!(Century);
-
-impl Unit for Nanosecond {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-9, offset: 0.0, symbol: "ns", name: "Nanosecond" }
-    }
-}
-
-impl Unit for Microsecond {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-6, offset: 0.0, symbol: "µs", name: "Microsecond" }
-    }
-}
-
-impl Unit for Millisecond {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-3, offset: 0.0, symbol: "ms", name: "Millisecond" }
-    }
-}
-
-impl Unit for Second {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "s", name: "Second" }
-    }
-}
-
-impl Unit for Minute {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 60.0, offset: 0.0, symbol: "min", name: "Minute" }
-    }
-}
-
-impl Unit for Hour {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 3600.0, offset: 0.0, symbol: "h", name: "Hour" }
-    }
-}
-
-impl Unit for Day {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 86400.0, offset: 0.0, symbol: "day", name: "Day" }
-    }
-}
-
-impl Unit for Year {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        // using average year = 365.25 days
-        UnitParameters { scale: 365.25 * 86400.0, offset: 0.0, symbol: "year", name: "Year" }
-    }
-}
-
-impl Unit for Century {
-    type Dimension = Time;
-    fn parameters() -> UnitParameters {
-        // 100 years = 100 * Year
-        UnitParameters { scale: 100.0 * 365.25 * 86400.0, offset: 0.0, symbol: "century", name: "Century" }
-    }
-}
+impl_unit!(Nanosecond, Time, 1.0e-9, 0.0, "ns", "Nanosecond");
+impl_unit!(Microsecond, Time, 1.0e-6, 0.0, "µs", "Microsecond");
+impl_unit!(Millisecond, Time, 1.0e-3, 0.0, "ms", "Millisecond");
+impl_unit!(Second, Time, 1.0, 0.0, "s", "Second");
+impl_unit!(Minute, Time, 60.0, 0.0, "min", "Minute");
+impl_unit!(Hour, Time, 3600.0, 0.0, "h", "Hour");
+impl_unit!(Day, Time, 86400.0, 0.0, "day", "Day");
+impl_unit!(Year, Time, 365.25 * 86400.0, 0.0, "year", "Year");
+impl_unit!(Century, Time, 100.0 * 365.25 * 86400.0, 0.0, "century", "Century");
 
 // ---------- Force Units ----------
 pub struct Newton;
 pub struct Lbf;
 
-default_unit!(Newton);
-default_unit!(Lbf);
-
-impl Unit for Newton {
-    type Dimension = Force;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "N", name: "Newton" }
-    }
-}
-
-impl Unit for Lbf {
-    type Dimension = Force;
-    fn parameters() -> UnitParameters {
-        // 1 lbf ≈ 4.44822 newtons
-        UnitParameters { scale: 4.44822, offset: 0.0, symbol: "lbf", name: "Pound-force" }
-    }
-}
+impl_unit!(Newton, Force, 1.0, 0.0, "N", "Newton");
+impl_unit!(Lbf, Force, 4.44822, 0.0, "lbf", "Pound-force");
 
 // ---------- Velocity Units ----------
 pub struct MetersPerSecond;
 pub struct KilometersPerHour;
 
-default_unit!(MetersPerSecond);
-default_unit!(KilometersPerHour);
-
-impl Unit for MetersPerSecond {
-    type Dimension = Velocity;
-    fn parameters() -> UnitParameters {
-        // Base velocity unit: m/s.
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "m/s", name: "MetersPerSecond" }
-    }
-}
-
-impl Unit for KilometersPerHour {
-    type Dimension = Velocity;
-    fn parameters() -> UnitParameters {
-        // 1 km/h = 1000 m / 3600 s = 1/3.6 m/s
-        UnitParameters { scale: 1.0 / 3.6, offset: 0.0, symbol: "km/h", name: "KilometersPerHour" }
-    }
-}
+impl_unit!(MetersPerSecond, Velocity, 1.0, 0.0, "m/s", "MetersPerSecond");
+impl_unit!(KilometersPerHour, Velocity, 1.0 / 3.6, 0.0, "km/h", "KilometersPerHour");
 
 // ---------- Acceleration Unit ----------
 pub struct MetersPerSecondSquared;
 
-default_unit!(MetersPerSecondSquared);
-
-impl Unit for MetersPerSecondSquared {
-    type Dimension = Acceleration;
-    fn parameters() -> UnitParameters {
-        // Base acceleration unit: m/s².
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "m/s²", name: "MeterPerSecondSquared" }
-    }
-}
+impl_unit!(MetersPerSecondSquared, Acceleration, 1.0, 0.0, "m/s²", "MeterPerSecondSquared");
 
 // ---------- Temperature Units ----------
 pub struct Celsius;
 pub struct Kelvin;
 pub struct Fahrenheit;
 
-default_unit!(Celsius);
-default_unit!(Kelvin);
-default_unit!(Fahrenheit);
-
-impl Unit for Kelvin {
-    type Dimension = Temperature;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "K", name: "Kelvin" }
-    }
-}
-
-impl Unit for Celsius {
-    type Dimension = Temperature;
-    fn parameters() -> UnitParameters {
-        // 0°C = 273.15K
-        UnitParameters { scale: 1.0, offset: 273.15, symbol: "°C", name: "Celsius" }
-    }
-}
-
-impl Unit for Fahrenheit {
-    type Dimension = Temperature;
-    fn parameters() -> UnitParameters {
-        // Kelvin = (Fahrenheit * 5/9) + 255.372222...
-        UnitParameters { scale: 5.0/9.0, offset: 255.372222, symbol: "°F", name: "Fahrenheit" }
-    }
-}
+impl_unit!(Kelvin, Temperature, 1.0, 0.0, "K", "Kelvin");
+impl_unit!(Celsius, Temperature, 1.0, 273.15, "°C", "Celsius");
+impl_unit!(Fahrenheit, Temperature, 5.0/9.0, 255.372222, "°F", "Fahrenheit");
 
 // ---------- Energy Units ----------
 pub struct Joule;
 pub struct ElectronVolt;
 
-default_unit!(Joule);
-default_unit!(ElectronVolt);
-
-impl Unit for Joule {
-    type Dimension = Energy;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "J", name: "Joule" }
-    }
-}
-
-impl Unit for ElectronVolt {
-    type Dimension = Energy;
-    fn parameters() -> UnitParameters {
-        // 1 eV = 1.602176634e-19 Joules
-        UnitParameters { scale: 1.602176634e-19, offset: 0.0, symbol: "eV", name: "ElectronVolt" }
-    }
-}
+impl_unit!(Joule, Energy, 1.0, 0.0, "J", "Joule");
+impl_unit!(ElectronVolt, Energy, 1.602176634e-19, 0.0, "eV", "ElectronVolt");
 
 // ---------- Mass Units ----------
 pub struct Kilogram;
 pub struct Gram;
 pub struct Pound;
+pub struct Dalton;
 
-default_unit!(Kilogram);
-default_unit!(Gram);
-default_unit!(Pound);
+impl_unit!(Kilogram, Mass, 1.0, 0.0, "kg", "Kilogram");
+impl_unit!(Gram, Mass, 1.0e-3, 0.0, "g", "Gram");
+impl_unit!(Pound, Mass, 0.45359237, 0.0, "lb", "Pound");
+impl_unit!(Dalton, Mass, 1.66053906660e-27, 0.0, "Da", "Dalton");
 
-impl Unit for Kilogram {
-    type Dimension = Mass;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "kg", name: "Kilogram" }
-    }
-}
-
-impl Unit for Gram {
-    type Dimension = Mass;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-3, offset: 0.0, symbol: "g", name: "Gram" }
-    }
-}
-
-impl Unit for Pound {
-    type Dimension = Mass;
-    fn parameters() -> UnitParameters {
-        // 1 lb ≈ 0.45359237 kg
-        UnitParameters { scale: 0.45359237, offset: 0.0, symbol: "lb", name: "Pound" }
-    }
-}
-
-// ---------- Lumious Intensity Units ----------
+// ---------- Luminous Intensity Units ----------
 pub struct Candela;
 
-default_unit!(Candela);
-
-impl Unit for Candela {
-    type Dimension = LuminousIntensity;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "cd", name: "Candela" }
-    }
-}
+impl_unit!(Candela, LuminousIntensity, 1.0, 0.0, "cd", "Candela");
 
 // ---------- Amount Units ----------
-
 pub struct Mole;
 
-default_unit!(Mole);
-
-impl Unit for Mole {
-    type Dimension = Amount;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "mol", name: "Mole" }
-    }
-}
+impl_unit!(Mole, Amount, 1.0, 0.0, "mol", "Mole");
 
 // ---------- Pressure Units ----------
 pub struct Pascal;
 pub struct Bar;
 pub struct Atmosphere;
 
-default_unit!(Pascal);
-default_unit!(Bar);
-default_unit!(Atmosphere);
-
-impl Unit for Pascal {
-    type Dimension = Pressure;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "Pa", name: "Pascal" }
-    }
-}
-
-impl Unit for Bar {
-    type Dimension = Pressure;
-    fn parameters() -> UnitParameters {
-        // 1 bar = 100000 Pa
-        UnitParameters { scale: 100000.0, offset: 0.0, symbol: "bar", name: "Bar" }
-    }
-}
-
-impl Unit for Atmosphere {
-    type Dimension = Pressure;
-    fn parameters() -> UnitParameters {
-        // 1 atm = 101325 Pa
-        UnitParameters { scale: 101325.0, offset: 0.0, symbol: "atm", name: "Atmosphere" }
-    }
-}
+impl_unit!(Pascal, Pressure, 1.0, 0.0, "Pa", "Pascal");
+impl_unit!(Bar, Pressure, 100000.0, 0.0, "bar", "Bar");
+impl_unit!(Atmosphere, Pressure, 101325.0, 0.0, "atm", "Atmosphere");
 
 // ---------- Power Units ----------
 pub struct Watt;
 pub struct Horsepower;
 
-default_unit!(Watt);
-default_unit!(Horsepower);
-
-impl Unit for Watt {
-    type Dimension = Power;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "W", name: "Watt" }
-    }
-}
-
-impl Unit for Horsepower {
-    type Dimension = Power;
-    fn parameters() -> UnitParameters {
-        // 1 hp ≈ 745.7 W
-        UnitParameters { scale: 745.7, offset: 0.0, symbol: "hp", name: "Horsepower" }
-    }
-}
+impl_unit!(Watt, Power, 1.0, 0.0, "W", "Watt");
+impl_unit!(Horsepower, Power, 745.7, 0.0, "hp", "Horsepower");
 
 // ---------- Area Units ----------
 pub struct SquareMeter;
-default_unit!(SquareMeter);
-impl Unit for SquareMeter {
-    type Dimension = Area;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "m²", name: "SquareMeter" }
-    }
-}
+
+impl_unit!(SquareMeter, Area, 1.0, 0.0, "m²", "SquareMeter");
 
 // ---------- Volume Units ----------
 pub struct CubicMeter;
@@ -440,59 +172,20 @@ pub struct Liter;
 pub struct Milliliter;
 pub struct Gallon;
 
-default_unit!(CubicMeter);
-default_unit!(Liter);
-default_unit!(Milliliter);
-default_unit!(Gallon);
-
-impl Unit for CubicMeter {
-    type Dimension = Volume;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "m³", name: "CubicMeter" }
-    }
-}
-
-impl Unit for Liter {
-    type Dimension = Volume;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-3, offset: 0.0, symbol: "L", name: "Liter" }
-    }
-}
-
-impl Unit for Milliliter {
-    type Dimension = Volume;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0e-6, offset: 0.0, symbol: "mL", name: "Milliliter" }
-    }
-}
-
-impl Unit for Gallon {
-    type Dimension = Volume;
-    fn parameters() -> UnitParameters {
-        // 1 gallon ≈ 3.78541 liters
-        UnitParameters { scale: 3.78541, offset: 0.0, symbol: "gal", name: "Gallon" }
-    }
-}
+impl_unit!(CubicMeter, Volume, 1.0, 0.0, "m³", "CubicMeter");
+impl_unit!(Liter, Volume, 1.0e-3, 0.0, "L", "Liter");
+impl_unit!(Milliliter, Volume, 1.0e-6, 0.0, "mL", "Milliliter");
+impl_unit!(Gallon, Volume, 3.78541, 0.0, "gal", "Gallon");
 
 // ---------- Frequency Units ----------
 pub struct Hertz;
-default_unit!(Hertz);
-impl Unit for Hertz {
-    type Dimension = Frequency;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "Hz", name: "Hertz" }
-    }
-}
+
+impl_unit!(Hertz, Frequency, 1.0, 0.0, "Hz", "Hertz");
 
 // ---------- Electric Current Units ----------
 pub struct Ampere;
-default_unit!(Ampere);
-impl Unit for Ampere {
-    type Dimension = Current;
-    fn parameters() -> UnitParameters {
-        UnitParameters { scale: 1.0, offset: 0.0, symbol: "A", name: "Ampere" }
-    }
-}
+
+impl_unit!(Ampere, Current, 1.0, 0.0, "A", "Ampere");
 
 // -------------------------------------------------------------------
 // SI Constants (using Scalar type)
@@ -500,41 +193,41 @@ impl Unit for Ampere {
 use std::marker::PhantomData;
 
 pub const C: Scalar<Velocity> = Scalar {
-    data: [299_792_458.0],
+    data: [ c64 { a: 299_792_458.0, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const G: Scalar<Acceleration> = Scalar {
-    data: [9.81],
+    data: [c64 { a: 9.80665, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const H: Scalar<dim_mul!(Energy,Time)> = Scalar {
-    data: [6.62607015e-34],
+    data: [c64 { a: 6.62607015e-34, b: 0.0}],
     _phantom: PhantomData
 };
 
-pub const K: Scalar<Temperature> = Scalar {
-    data: [1.380649e-23],
+pub const K: Scalar<Entropy> = Scalar {
+    data: [c64 { a: 1.380649e-23, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const E: Scalar<Charge> = Scalar {
-    data: [1.602176634e-19],
+    data: [c64 { a: 1.602176634e-19, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const M_E: Scalar<Mass> = Scalar {
-    data: [9.10938356e-31],
+    data: [c64 { a: 9.10938356e-31, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const M_P: Scalar<Mass> = Scalar {
-    data: [1.6726219e-27],
+    data: [c64 { a: 1.6726219e-27, b: 0.0}],
     _phantom: PhantomData
 };
 
 pub const N_A: Scalar<Amount> = Scalar {
-    data: [6.02214076e23],
+    data: [c64 { a: 6.02214076e23, b: 0.0}],
     _phantom: PhantomData
 };

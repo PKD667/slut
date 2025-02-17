@@ -16,6 +16,9 @@ use si::*;
 
 pub mod utils;  
 
+pub mod complex;
+use complex::*;
+
 
 #[cfg(test)]
 mod tests {
@@ -26,12 +29,12 @@ mod tests {
     #[test]
     fn test_stuff() {
         // Tensor of lengths
-        let mass = Scalar::<Mass>::new::<Kilogram>([10.0]);
-        let force = Vec2::<Force>::new::<Newton>([10.0, 20.0]);
+        let mass = (10.0).scalar::<Kilogram>();
+        let force = Vec2::<Force>::new::<Newton>([1.0, 2.0].complex());
 
         //let error = mass + force; // error (expected)
 
-        let mass = mass + Scalar::<Mass>::new::<Gram>([5.0]); // works
+        let mass = mass + Scalar::<Mass>::from_f64::<Gram>(5.0); // works
         println!("{}", mass);
         /*
         Tensor [1x1]: M^1
@@ -46,17 +49,17 @@ mod tests {
         ( 1.9990004 )
         */
 
-        let time = Scalar::<Time>::from::<Second>(1.0);
-        let vel1 = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0]);
+        let time = Scalar::<Time>::from_f64::<Second>(1.0);
+        let vel1 = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0].complex());
 
         let vel2 = vel1 + acc.scale(time); // works
         println!("{:?}", vel2.get::<MetersPerSecond>());
         /*
-        [10.666667, 21.333334]
+        [c64 { a: 10.099950024987507, b: 0.0 }, c64 { a: 20.199900049975014, b: 0.0 }]
         */
 
         // try to transpose a tensor
-        let tensor = Tensor::<Dimensionless, 1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let tensor = Tensor::<Dimensionless, 1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
         let tensor_transposed = tensor.transpose();
         println!("{}", tensor);
         println!("{}", tensor_transposed);
@@ -73,7 +76,7 @@ mod tests {
         ( 6 )
          */
 
-        let length = Vec2::<Length>::new::<Meter>([1.0, 2.0]);
+        let length = Vec2::<Length>::new::<Meter>([10.0, 20.0].complex());
 
         // now try and dot product length and force
         let dot_product = dot!(length, force);
@@ -86,8 +89,8 @@ mod tests {
         assert_dimension!(dot_product, Energy); // works
         //assert_dimension!(dot_product, Force); // error (expected)
 
-        let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
-        let m2 = Matrix::<Length, 3, 2>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
+        let m2 = Matrix::<Length, 3, 2>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
 
         let m3 = m1 * m2;
         println!("{}", m3);
@@ -105,7 +108,7 @@ mod tests {
             println!("Not equal");
         }
 
-        let mass2 = Scalar::<Mass>::new::<Kilogram>([15.0]);
+        let mass2 = Scalar::<Mass>::from_f64::<Kilogram>(10.0);
 
         if (mass == mass2) {
             println!("Equal");
@@ -120,15 +123,23 @@ mod tests {
 
         // test macros
 
-        let inv = Scalar::<dim_inv!(Time)>::new::<unit_inv!(Second)>([1.0]);
+        let inv = Scalar::<dim_inv!(Time)>::from_f64::<unit_inv!(Second)>(1.0);
 
-        let mul = Scalar::<dim_div!(Energy,Temperature)>::new::<unit_div!(Joule, Kelvin)>([1.0]);
+        let mul = Scalar::<dim_div!(Energy,Temperature)>::new::<unit_div!(Joule, Kelvin)>([1.0].complex());
 
         assert_dimension!(mul, Entropy); // works
         assert_dimension!(inv, Frequency); // works
 
         println!("{}", inv);
         println!("{}", mul);
+
+        /*
+        Tensor [1x1]: T^-1
+        ( 1 )
+
+        Tensor [1x1]: L^2 * M^1 * T^-2 * Θ^-1
+        ( 1 )
+        */
 
 
 

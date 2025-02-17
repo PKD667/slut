@@ -1,14 +1,14 @@
-pub type STYPE = f32;
-
 use crate::dimension::*;
 use crate::*;
+
+use crate::complex::c64;
 
 // define units for our dimensions
 // units will be used as interfaces to our dimensions
 #[derive(Clone, Copy)]
 pub struct UnitParameters {
-    pub(crate) scale: STYPE,
-    pub(crate) offset: STYPE,
+    pub(crate) scale: f64,
+    pub(crate) offset: f64,
     pub(crate) symbol: &'static str,
     pub(crate) name: &'static str,
 }
@@ -18,22 +18,22 @@ pub trait Unit {
     type Dimension; // Associated dimension type
     fn parameters() -> UnitParameters;
 
-    fn to<S: Unit<Dimension = Self::Dimension>>(value: STYPE) -> STYPE {
+    fn to<S: Unit<Dimension = Self::Dimension>>(value: c64) -> c64 {
         let params = Self::parameters();
         S::from_base(params.scale * Self::to_base(value) + params.offset)
     }
 
-    fn from<S: Unit<Dimension = Self::Dimension>>(value: STYPE) -> STYPE {
+    fn from<S: Unit<Dimension = Self::Dimension>>(value: c64) -> c64 {
         let params = Self::parameters();
         Self::from_base((value - params.offset) / params.scale)
     }
 
-    fn to_base(value: STYPE) -> STYPE {
+    fn to_base(value: c64) -> c64 {
         let params = Self::parameters();
         value * params.scale + params.offset
     }
 
-    fn from_base(value: STYPE) -> STYPE {
+    fn from_base(value: c64) -> c64 {
         let params = Self::parameters();
         (value - params.offset) / params.scale
     }
@@ -53,7 +53,7 @@ pub trait Unit {
     ///     self.scale / T::parameters().scale
     ///
     /// This function assumes that both units share the same Dimension.
-    fn ratio<T: Unit<Dimension = Self::Dimension>>() -> STYPE {
+    fn ratio<T: Unit<Dimension = Self::Dimension>>() -> f64 {
         let self_params = Self::parameters();
         let other_params = T::parameters();
         self_params.scale / other_params.scale

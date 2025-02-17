@@ -1,6 +1,9 @@
-use crate::units::{Unit, STYPE};
+use crate::complex::Complexify;
+use crate::units::Unit;
 use std::marker::PhantomData;
 use std::ops::*;
+
+use crate::complex::c64;
 
 
 use crate::dimension::Dimension;
@@ -13,18 +16,18 @@ pub struct Tensor<D, const ROWS: usize, const COLS: usize>
 where
     [(); ROWS * COLS]:,
 {
-    pub(crate) data: [STYPE; ROWS * COLS],
-    pub(crate) _phantom: PhantomData<D>,
+    pub data: [c64; ROWS * COLS],
+    pub _phantom: PhantomData<D>,
 }
 
 impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
 {
-    pub fn new<U: Unit<Dimension = D>>(values: [STYPE; ROWS * COLS]) -> Self {
+    pub fn new<U: Unit<Dimension = D>>(values: [c64; ROWS * COLS]) -> Self {
 
 
-        let data: [STYPE; ROWS * COLS] = values
+        let data: [c64; ROWS * COLS] = values
             .iter()
             .map(|&v| U::to_base(v))
             .collect::<Vec<_>>()
@@ -37,13 +40,13 @@ where
         }
     }
 
-    pub fn get_at<U: Unit<Dimension = D>>(&self, row: usize, col: usize) -> STYPE {
+    pub fn get_at<U: Unit<Dimension = D>>(&self, row: usize, col: usize) -> c64 {
         assert!(row < ROWS && col < COLS);
         let idx = row * COLS + col;
         U::from_base(self.data[idx])
     }
 
-    pub fn get<S: Unit<Dimension = D>>(&self) -> [STYPE; ROWS * COLS] {
+    pub fn get<S: Unit<Dimension = D>>(&self) -> [c64; ROWS * COLS] {
         self.data
             .iter()
             .map(|&v| S::from_base(v))
@@ -94,7 +97,7 @@ where
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        let data: [STYPE; ROWS * COLS] = self
+        let data: [c64; ROWS * COLS] = self
             .data
             .iter()
             .zip(other.data.iter())
@@ -117,7 +120,7 @@ where
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        let data: [STYPE; ROWS * COLS] = self
+        let data: [c64; ROWS * COLS] = self
             .data
             .iter()
             .zip(other.data.iter())
@@ -173,11 +176,11 @@ where
         self,
         other: Tensor<Dimension<L2, M2, T2, Θ2, I2, N2, J2>, COMMON, COLS>,
     ) -> Self::Output {
-        let mut result = vec![0.0; ROWS * COLS];
+        let mut result = vec![c64::zero(); ROWS * COLS];
 
         for i in 0..ROWS {
             for j in 0..COLS {
-                let mut sum: STYPE = 0.0;
+                let mut sum: c64 = c64::zero();
                 for k in 0..COMMON {
                     sum += self.data[i * COMMON + k] * other.data[k * COLS + j];
                 }
@@ -185,9 +188,9 @@ where
             }
         }
 
-        let data: [STYPE; ROWS * COLS] = result
+        let data: [c64; ROWS * COLS] = result
             .into_iter()
-            .collect::<Vec<STYPE>>()
+            .collect::<Vec<c64>>()
             .try_into()
             .unwrap();
 
@@ -215,11 +218,11 @@ where
         [(); ROWS * COLS]:,
     {
         let s = scalar.data[0];
-        let data: [STYPE; ROWS * COLS] = self
+        let data: [c64; ROWS * COLS] = self
             .data
             .iter()
             .map(|&v| v * s)
-            .collect::<Vec<STYPE>>()
+            .collect::<Vec<c64>>()
             .try_into()
             .unwrap();
 
@@ -236,7 +239,7 @@ where
     [(); ROWS * COLS]:,
 {
     pub fn zero() -> Self {
-        let data: [STYPE; ROWS * COLS] = [0.0; ROWS * COLS];
+        let data: [c64; ROWS * COLS] = [c64::zero(); ROWS * COLS];
 
         Tensor {
             data,
@@ -254,7 +257,7 @@ pub trait ToScalar {
     fn scalar<U: Unit>(&self) -> Scalar<U::Dimension>;
 }
 
-impl ToScalar  for STYPE {
+impl ToScalar  for c64 {
     fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
         Scalar {
             data: [*self],
@@ -269,6 +272,25 @@ impl ToScalar  for STYPE {
         }
     }
 }
+
+impl ToScalar for f64 {
+    fn dless(&self) -> Scalar<crate::dimension::Dimensionless> {
+        Scalar {
+            data: [self.complex()],
+            _phantom: PhantomData,
+        }
+    }
+
+    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
+        Scalar {
+            data: [U::to_base(self.complex())],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+
+
 
 //impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 //where
@@ -302,7 +324,7 @@ where
     where
         D: InvertDimension,
     {
-        let data: [STYPE; 1] = [1.0 / self.data[0]];
+        let data: [c64; 1] = [1.0 / self.data[0]];
 
         Tensor {
             data,
@@ -319,7 +341,7 @@ where
     type Output = Self;
 
     fn neg(self) -> Self {
-        let data: [STYPE; ROWS * COLS] = self
+        let data: [c64; ROWS * COLS] = self
             .data
             .iter()
             .map(|&v| -v)
@@ -341,7 +363,7 @@ where
     /// Returns the norm of the tensor as a 1×1 tensor.
     /// The norm is defined as sqrt(sum(vᵢ²)).
     pub fn norm(&self) -> Tensor<D, 1, 1> {
-        let sum: STYPE = self.data.iter().map(|&v| v * v).sum();
+        let sum: c64 = self.data.iter().map(|&v| v * v).sum();
 
         Tensor::<D, 1, 1> {
             data: [sum.sqrt()],
@@ -359,7 +381,7 @@ where
     where
         [(); COLS * ROWS]:,
     {
-        let mut transposed = vec![0.0; ROWS * COLS];
+        let mut transposed = vec![c64::zero(); ROWS * COLS];
         for i in 0..ROWS {
             for j in 0..COLS {
                 // Element at (i, j) moves to (j, i)
@@ -367,9 +389,9 @@ where
             }
         }
         // Use `COLS * ROWS` in the type annotation to match the expected array length.
-        let data: [STYPE; COLS * ROWS] = transposed
+        let data: [c64; COLS * ROWS] = transposed
             .into_iter()
-            .collect::<Vec<STYPE>>()
+            .collect::<Vec<c64>>()
             .try_into()
             .unwrap();
 
@@ -418,11 +440,11 @@ where
     }
 }
 
-// Optionally, if STYPE: Eq then implement Eq.
+// Optionally, if c64: Eq then implement Eq.
 impl<D, const ROWS: usize, const COLS: usize> Eq for Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
-    STYPE: Eq,
+    c64: Eq,
 {
 }
 
@@ -438,65 +460,82 @@ where
 
 // --- Cool init and features
 
-// implement converting a STYPE to a Scalar tensor
+// implement converting a c64 to a Scalar tensor
 impl<D> Scalar<D> {
 
-    pub fn from<U: Unit<Dimension = D>>(value: STYPE) -> Self {
+    pub fn from_c64<U: Unit<Dimension = D>>(value: c64) -> Self {
         Scalar { data: [U::to_base(value)], _phantom: PhantomData }
+    }
+}
+
+// implement converting a float to a Scalar tensor
+impl<D> Scalar<D> {
+
+    pub fn from_f64<U: Unit<Dimension = D>>(value: f64) -> Self {
+        Scalar { data: [U::to_base(value.complex())], _phantom: PhantomData }
     }
 }
 
 
 
-/// A trait for converting from STYPE to another type.
-pub trait FromSTYPE: Sized {
-    fn from_stype(value: STYPE) -> Self;
+/// A trait for converting from c64 to another type.
+pub trait Fromc64: Sized {
+    fn from_c64(value: c64) -> Self;
 }
 
-// Implement for STYPE itself (a no‑op conversion)
-impl FromSTYPE for STYPE {
-    fn from_stype(value: STYPE) -> Self {
+// Implement for c64 itself (a no‑op conversion)
+impl Fromc64 for c64 {
+    fn from_c64(value: c64) -> Self {
         value
     }
 }
 
 // For example, convert to i32 by rounding.
-impl FromSTYPE for i32 {
-    fn from_stype(value: STYPE) -> Self {
-        value.round() as i32
+impl Fromc64 for i32 {
+    fn from_c64(value: c64) -> Self {
+
+        if value.im() != 0.0 {
+            panic!("Cannot convert complex number to integer");
+        }
+
+        value.re().round() as i32
     }
 }
 
 // You can add similar implementations for other target types...
-impl FromSTYPE for i64 {
-    fn from_stype(value: STYPE) -> Self {
-        value.round() as i64
+impl Fromc64 for i64 {
+    fn from_c64(value: c64) -> Self {
+        if value.im() != 0.0 {
+            panic!("Cannot convert complex number to integer");
+        }
+
+        value.re().round() as i64
     }
 }
 
 impl<D> Scalar<D> {
-    // Default raw returns STYPE.
-    pub fn raw(&self) -> STYPE {
+    // Default raw returns c64.
+    pub fn raw(&self) -> c64 {
         self.data[0]
     }
     
-    // Generic raw conversion into any type that implements FromSTYPE.
-    pub fn raw_as<T: FromSTYPE>(&self) -> T {
-        T::from_stype(self.data[0])
+    // Generic raw conversion into any type that implements Fromc64.
+    pub fn raw_as<T: Fromc64>(&self) -> T {
+        T::from_c64(self.data[0])
     }
 }
 
 impl<D> Vec2<D> {
-    // Returns a tuple of STYPE (default behavior)
-    pub fn raw_tuple(&self) -> (STYPE, STYPE) {
+    // Returns a tuple of c64 (default behavior)
+    pub fn raw_tuple(&self) -> (c64, c64) {
         (self.data[0], self.data[1])
     }
 
     // Generic conversion for a Vec2 into a tuple of type T.
-    pub fn raw_tuple_as<T: FromSTYPE>(&self) -> (T, T) {
+    pub fn raw_tuple_as<T: Fromc64>(&self) -> (T, T) {
         (
-            T::from_stype(self.data[0]),
-            T::from_stype(self.data[1]),
+            T::from_c64(self.data[0]),
+            T::from_c64(self.data[1]),
         )
     }
 }
@@ -505,14 +544,14 @@ impl<D, const ROWS: usize, const COLS: usize> Tensor<D, ROWS, COLS>
 where
     [(); ROWS * COLS]:,
 {
-    // Returns a vector of STYPE elements (default behavior)
-    pub fn raw_vec(&self) -> Vec<STYPE> {
+    // Returns a vector of c64 elements (default behavior)
+    pub fn raw_vec(&self) -> Vec<c64> {
         self.data.to_vec()
     }
 
     // Generic conversion for any Tensor into a Vec<T>.
-    pub fn raw_vec_as<T: FromSTYPE>(&self) -> Vec<T> {
-        self.data.iter().map(|&x| T::from_stype(x)).collect()
+    pub fn raw_vec_as<T: Fromc64>(&self) -> Vec<T> {
+        self.data.iter().map(|&x| T::from_c64(x)).collect()
     }
 }
 
