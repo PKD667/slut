@@ -8,3 +8,6 @@ description = "Library for Vectors and Matrices with Physical Dimensions. Basica
 [lib]
 name = "dlt"# Dimensioned Tensor Library
 path = "src/lib.rs"
+
+[dependencies]
+rand = "0.9.0"

@@ -271,8 +271,6 @@ impl PartialOrd for c64 {
     }
 }
 
-
-
 // Implement negation for complex numbers: -(a + bi) = (-a) + (-b)i
 impl Neg for c64 {
     type Output = Self;
@@ -285,13 +283,6 @@ impl Neg for c64 {
 impl From<(f64, f64)> for c64 {
     fn from((a, b): (f64, f64)) -> Self {
         c64::new(a, b)
-    }
-}
-
-// Implement conversion from a tuple (f64, f64) to c64
-impl From<f64> for c64 {
-    fn from(a : f64) -> Self {
-        c64::new(a, 0.0)
     }
 }
 
@@ -309,75 +300,59 @@ impl Sum for c64 {
     }
 }
 
-// Extend f64 with a .complex() method that converts it to a c64
-pub trait Complexify {
-    fn complex(self) -> c64;
+// Add a unified trait for converting various types to c64.
+pub trait IntoC64 {
+    fn into_c64(self) -> c64;
 }
 
-impl Complexify for f64 {
-    fn complex(self) -> c64 {
-        self.into() // utilizes the implemented From<f64> for c64
-    }
-}
-
-// Optionally, extend other float types (e.g., f32) by converting them to f64 first.
-impl Complexify for f32 {
-    fn complex(self) -> c64 {
-        (self as f64).into()
-    }
-}
-
-impl Complexify for (f64, f64) {
-    fn complex(self) -> c64 {
-        c64::new(self.0, self.1)
-    }
-}
-
-impl Complexify for (f32, f32) {
-    fn complex(self) -> c64 {
-        c64::new(self.0 as f64, self.1 as f64)
-    }
-}
-
-impl Complexify for c64 {
-    fn complex(self) -> c64 {
+impl IntoC64 for c64 {
+    fn into_c64(self) -> c64 {
         self
     }
 }
 
-impl Complexify for (i32, i32) {
-    fn complex(self) -> c64 {
-        c64::new(self.0 as f64, self.1 as f64)
+impl IntoC64 for f64 {
+    fn into_c64(self) -> c64 {
+        c64::new(self, 0.0)
+    }
+}
+
+impl IntoC64 for f32 {
+    fn into_c64(self) -> c64 {
+        c64::new(self as f64, 0.0)
+    }
+}
+
+impl<T: Into<f64>, U: Into<f64>> IntoC64 for (T, U) {
+    fn into_c64(self) -> c64 {
+        c64::new(self.0.into(), self.1.into())
     }
 }
 
 
-// Implement something to convert a [float, float, float, ..., float] to a [complex, complex, complex, ..., complex]
+// Optionally, add other implementations following the same pattern...
+
+// Remove old Complexify implementations and add:
+pub trait ToComplex {
+    fn complex(self) -> c64;
+}
+
+impl<T: IntoC64> ToComplex for T {
+    fn complex(self) -> c64 {
+        self.into_c64()
+    }
+}
+
+// Extend the conversion for arrays generically.
 pub trait ComplexifyArray<const N: usize> {
     fn complex(self) -> [c64; N];
 }
 
-impl<const N: usize> ComplexifyArray<N> for [f64; N] {
+impl<T: IntoC64 + Copy, const N: usize> ComplexifyArray<N> for [T; N] {
     fn complex(self) -> [c64; N] {
-        let mut result: [c64; N] = [c64::zero(); N];
-        for (i, &val) in self.iter().enumerate() {
-            result[i] = val.complex();
-        }
-        result
+        std::array::from_fn(|i| self[i].into_c64())
     }
 }
-
-impl<const N: usize> ComplexifyArray<N> for &[f64; N] {
-    fn complex(self) -> [c64; N] {
-        let mut result: [c64; N] = [c64::zero(); N];
-        for (i, &val) in self.iter().enumerate() {
-            result[i] = val.complex();
-        }
-        result
-    }
-}
-
-
 
 // Implement Display for complex numbers
 impl std::fmt::Display for c64 {

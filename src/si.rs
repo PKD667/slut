@@ -1,7 +1,5 @@
 use crate::*;
-use crate::units::*;
 use crate::tensor::*;
-use crate::dimension::*;
 use crate::complex::c64;
 
 // ----------------------------------
@@ -58,8 +56,9 @@ pub struct Kilometer;
 pub struct Centimeter;
 pub struct LightYear;
 pub struct Ångström;
+pub struct PlankLength;
 
-impl_unit!(Nanometer, Length, 1.0e-9, 0.0, "nm", "Nanometer");
+impl_unit!(PlankLength, Length, 1.0, 0.0, "l_p", "PlankLength");
 impl_unit!(Micrometer, Length, 1.0e-6, 0.0, "µm", "Micrometer");
 impl_unit!(Millimeter, Length, 1.0e-3, 0.0, "mm", "Millimeter");
 impl_unit!(Meter, Length, 1.0, 0.0, "m", "Meter");

@@ -3,7 +3,7 @@
 #![feature(generic_arg_infer)]
 
 pub mod tensor;
-use tensor::*;
+
 
 pub mod dimension;
 use dimension::*;
@@ -12,17 +12,17 @@ pub mod units;
 use units::*;
 
 pub mod si;
-use si::*;
+
 
 pub mod complex;
-use complex::*;
 
 
 #[cfg(test)]
 mod tests {
-
-
     use super::*;
+    use crate::si::*;
+    use crate::tensor::*;
+    use crate::complex::*;
 
     #[test]
     fn test_stuff() {
@@ -57,7 +57,7 @@ mod tests {
         */
 
         // try to transpose a tensor
-        let tensor = Tensor::<Dimensionless, 1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
+        let tensor = Tensor::<Dimensionless, 1,1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
         let tensor_transposed = tensor.transpose();
         println!("{}", tensor);
         println!("{}", tensor_transposed);
@@ -160,9 +160,9 @@ mod tests {
         println!("{}", a_h);
 
 
-        // Should be [2-4i, 3-5i]
-        assert_eq!(a_h.get_at::<Unitless>(0,1), c64::new(2.0, -4.0));
-        assert_eq!(a_h.get_at::<Unitless>(0,1), c64::new(3.0, -5.0));
+
+        assert_eq!(a_h.get_at(0,0,0).raw(), c64::new(2.0, -4.0));
+        assert_eq!(a_h.get_at(0,0,1).raw(), c64::new(3.0, -5.0));
     }
 
 
@@ -184,14 +184,14 @@ mod tests {
         println!("c_: {}",c_);
 
         // The result should be -17 - 7i
-        assert_approx_eq!(c, (39.0, -3.0).complex().dless());
+        assert_approx_eq!(c, dless!((39.0, -3.0).complex()));
 
         // Test conjugate symmetry
         assert_approx_eq!(ip!(a,b).conjugate(), ip!(b,a));
 
         // Test linearity
         let d = cvec!((1,1), (2,2));
-        let alpha = (2.0, 1.0).complex().dless();
+        let alpha = dless!((2.0, 1.0).complex());
 
         // (a, αb + d) = α(a,b) + (a,d)
         assert_approx_eq!(
@@ -201,6 +201,37 @@ mod tests {
 
         // Test positive definiteness
         assert!(ip!(a,a).raw().re() >= 0.0);
+    }
+
+    #[test]
+    fn pure_test() {
+        let a = cvec!((2,4), (3,5));
+        let b = cvec!((1,2), (3,4));
+
+        let c = ip!(a,b);
+        println!("{}", c);
+
+        assert_approx_eq!(c, dless!((39.0, -3.0).complex()));
+
+        let d = Natural::<1,1,4>::nat([1.0, 2.0, 3.0, 4.0].complex());
+        println!("{}", d);
+
+        let e = dless!((1.0, 2.0).complex());
+
+
+    }
+
+    #[test]
+    fn test_linalg() {
+        // test flatte, transpose, and conjugate transpose
+        let t = Natural::<10,10,10>::randnat(0.0.complex(), 1.0.complex());
+
+        println!("{}", t);
+        println!("{}", t.flatten());
+        println!("{}", t.transpose());
+        
+
+
     }
 
 }

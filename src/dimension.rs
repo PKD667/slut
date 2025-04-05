@@ -209,7 +209,7 @@ macro_rules! dim_div {
 #[macro_export]
 macro_rules! assert_dimension {
     ($value:expr, $expected:ty) => {{
-        let _: Tensor<$expected, _, _> = $value;
+        let _: Tensor<$expected, _,_, _> = $value;
         $value
     }};
 }
