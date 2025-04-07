@@ -15,10 +15,6 @@ impl c64 {
         c64 { a, b }
     }
 
-    pub fn zero() -> Self {
-        c64 { a: 0.0, b: 0.0 }
-    }
-
     /// Returns the conjugate of the complex number
     pub fn conjugate(self) -> Self {
         c64 { a: self.a, b: -self.b }
@@ -47,6 +43,16 @@ impl c64 {
         c64::new(r * theta.cos(), r * theta.sin())
     }
 
+}
+
+// implement zero i ONE
+impl c64 {
+    pub const ZERO: Self = c64 { a: 0.0, b: 0.0 };
+    pub const ONE: Self = c64 { a: 1.0, b: 0.0 };
+    pub const I: Self = c64 { a: 0.0, b: 1.0 };
+    pub const NEG_I: Self = c64 { a: 0.0, b: -1.0 };
+
+    pub const EPSILON: Self = c64 { a: f64::EPSILON, b: f64::EPSILON };
 }
 
 // Implement addition for complex numbers: (a + bi) + (c + di) = (a+c) + (b+d)i
@@ -146,6 +152,51 @@ impl Mul<c64> for f64 {
             a: self * other.a,
             b: self * other.b,
         }
+    }
+}
+
+// Multiply c64 by f32
+impl Mul<f32> for c64 {
+    type Output = Self;
+    fn mul(self, other: f32) -> Self {
+        self * (other as f64)
+    }
+}
+
+impl Mul<c64> for f32 {
+    type Output = c64;
+    fn mul(self, other: c64) -> c64 {
+        (self as f64) * other
+    }
+}
+
+// Multiply c64 by i32
+impl Mul<i32> for c64 {
+    type Output = Self;
+    fn mul(self, other: i32) -> Self {
+        self * (other as f64)
+    }
+}
+
+impl Mul<c64> for i32 {
+    type Output = c64;
+    fn mul(self, other: c64) -> c64 {
+        (self as f64) * other
+    }
+}
+
+// Multiply c64 by i64
+impl Mul<i64> for c64 {
+    type Output = Self;
+    fn mul(self, other: i64) -> Self {
+        self * (other as f64)
+    }
+}
+
+impl Mul<c64> for i64 {
+    type Output = c64;
+    fn mul(self, other: c64) -> c64 {
+        (self as f64) * other
     }
 }
 
@@ -293,10 +344,23 @@ impl From<c64> for (f64, f64) {
     }
 }
 
+impl From<f64> for c64 {
+    fn from(a: f64) -> Self {
+        c64::new(a, 0.0)
+    }
+}
+
+impl From<i64> for c64 {
+    fn from(a: i64) -> Self {
+        c64::new(a as f64, 0.0)
+    }
+}
+
+
 // implement sum
 impl Sum for c64 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(c64::zero(), |a, b| a + b)
+        iter.fold(c64::ZERO, |a, b| a + b)
     }
 }
 
@@ -328,6 +392,22 @@ impl<T: Into<f64>, U: Into<f64>> IntoC64 for (T, U) {
         c64::new(self.0.into(), self.1.into())
     }
 }
+
+// implement from c64 for f64
+impl From<c64> for f64 {
+    fn from(c: c64) -> Self {
+        c.a
+    }
+}
+
+// implement from c64 for i64
+impl From<c64> for i64 {
+    fn from(c: c64) -> Self {
+        c.a as i64
+    }
+}
+
+
 
 
 // Optionally, add other implementations following the same pattern...

@@ -2,6 +2,7 @@ use crate::dimension::*;
 use crate::*;
 
 use crate::complex::c64;
+use crate::tensor::element::*;
 
 // define units for our dimensions
 // units will be used as interfaces to our dimensions
@@ -13,29 +14,33 @@ pub struct UnitParameters {
     pub(crate) name: &'static str,
 }
 
-// Unit trait - defines how to convert to/from base units
 pub trait Unit {
     type Dimension; // Associated dimension type
+    
     fn parameters() -> UnitParameters;
 
-    fn to<S: Unit<Dimension = Self::Dimension>>(value: c64) -> c64 {
-        let params = Self::parameters();
-        S::from_base(params.scale * Self::to_base(value) + params.offset)
+    fn to<S: Unit<Dimension = Self::Dimension>, E: TensorElement>(value: E) -> E
+    {
+        let base = Self::to_base(value.into());
+        S::from_base(base).into()
     }
 
-    fn from<S: Unit<Dimension = Self::Dimension>>(value: c64) -> c64 {
-        let params = Self::parameters();
-        Self::from_base((value - params.offset) / params.scale)
+    fn from<S: Unit<Dimension = Self::Dimension>, E: TensorElement>(value: E) -> E
+    {
+        let base = S::to_base(value.into());
+        Self::from_base(base).into()
     }
 
-    fn to_base(value: c64) -> c64 {
+    fn to_base(value: c64) -> c64
+    {
         let params = Self::parameters();
-        value * params.scale + params.offset
+        c64::from(( ((value.a * params.scale) + params.offset) as f64, ((value.b * params.scale) + params.offset) as f64))
     }
 
-    fn from_base(value: c64) -> c64 {
+    fn from_base(value: c64) -> c64
+    {
         let params = Self::parameters();
-        (value - params.offset) / params.scale
+        c64::from(( ((value.a / params.scale) - params.offset) as f64, ((value.b / params.scale) - params.offset) as f64))
     }
 
     // print
@@ -59,7 +64,6 @@ pub trait Unit {
         self_params.scale / other_params.scale
     }
 }
-
 // Unitless trait unit
 pub struct Unitless;
 impl Unit for Unitless {

@@ -28,11 +28,11 @@ mod tests {
     fn test_stuff() {
         // Tensor of lengths
         let mass = (10.0).scalar::<Kilogram>();
-        let force = Vec2::<Force>::new::<Newton>([1.0, 2.0].complex());
+        let force = Vec2::<f64,Force>::new::<Newton>([1.0, 2.0]);
 
         //let error = mass + force; // error (expected)
 
-        let mass = mass + Scalar::<Mass>::from_f64::<Gram>(5.0); // works
+        let mass = mass + Scalar::<f64,Mass>::from::<Gram>(5.0); // works
         println!("{}", mass);
         /*
         Tensor [1x1]: M^1
@@ -47,8 +47,8 @@ mod tests {
         ( 1.9990004 )
         */
 
-        let time = Scalar::<Time>::from_f64::<Second>(1.0);
-        let vel1 = Vec2::<Velocity>::new::<MetersPerSecond>([10.0, 20.0].complex());
+        let time = Scalar::<f64,Time>::new::<Second>([1.0]);
+        let vel1 = Vec2::<f64,Velocity>::new::<MetersPerSecond>([10.0, 20.0]);
 
         let vel2 = vel1 + acc.scale(time); // works
         println!("{:?}", vel2.get::<MetersPerSecond>());
@@ -57,7 +57,7 @@ mod tests {
         */
 
         // try to transpose a tensor
-        let tensor = Tensor::<Dimensionless, 1,1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
+        let tensor = Tensor::<c64,Dimensionless, 1,1, 6>::new::<Unitless>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
         let tensor_transposed = tensor.transpose();
         println!("{}", tensor);
         println!("{}", tensor_transposed);
@@ -74,7 +74,7 @@ mod tests {
         ( 6 )
          */
 
-        let length = Vec2::<Length>::new::<Meter>([10.0, 20.0].complex());
+        let length = Vec2::<f64,Length>::new::<Meter>([10.0, 20.0]);
 
         // now try and dot product length and force
         let dot_product = dot!(length, force);
@@ -87,10 +87,10 @@ mod tests {
         assert_dimension!(dot_product, Energy); // works
         //assert_dimension!(dot_product, Force); // error (expected)
 
-        let m1 = Matrix::<Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
-        let m2 = Matrix::<Length, 3, 2>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0].complex());
+        let m1 = Matrix::<f64,Length, 2, 3>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let m2 = Matrix::<f64,Length, 3, 2>::new::<Meter>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
 
-        let m3 = m1 * m2;
+        let m3 = m1.matmul(m2);
         println!("{}", m3);
         /*
         Tensor [2x2]: L^2
@@ -106,7 +106,7 @@ mod tests {
             println!("Not equal");
         }
 
-        let mass2 = Scalar::<Mass>::from_f64::<Kilogram>(10.0);
+        let mass2 = Scalar::<f64,Mass>::from::<Kilogram>(10.0);
 
         if (mass == mass2) {
             println!("Equal");
@@ -121,9 +121,9 @@ mod tests {
 
         // test macros
 
-        let inv = Scalar::<dim_inv!(Time)>::from_f64::<unit_inv!(Second)>(1.0);
+        let inv = Scalar::<f64,dim_inv!(Time)>::from::<unit_inv!(Second)>(1.0);
 
-        let mul = Scalar::<dim_div!(Energy,Temperature)>::new::<unit_div!(Joule, Kelvin)>([1.0].complex());
+        let mul = Scalar::<f64,dim_div!(Energy,Temperature)>::new::<unit_div!(Joule, Kelvin)>([1.0]);
 
         assert_dimension!(mul, Entropy); // works
         assert_dimension!(inv, Frequency); // works
@@ -174,17 +174,17 @@ mod tests {
         println!("a:\n{}", a);
         println!("b:\n{}", b);
         println!("a†:\n{}", a.conjugate_transpose());
-        println!("a† × b:\n{}", a.conjugate_transpose() * b);
+        println!("a† × b:\n{}", a.conjugate_transpose().matmul(b));
 
 
         let c = ip!(a,b);
         println!("c: {}",c);
 
-        let c_ = dot!(a,b);
+        let c_ = dless!((39.0, -3.0).complex());
         println!("c_: {}",c_);
 
         // The result should be -17 - 7i
-        assert_approx_eq!(c, dless!((39.0, -3.0).complex()));
+        assert_approx_eq!(c, c_);
 
         // Test conjugate symmetry
         assert_approx_eq!(ip!(a,b).conjugate(), ip!(b,a));
@@ -211,7 +211,10 @@ mod tests {
         let c = ip!(a,b);
         println!("{}", c);
 
-        assert_approx_eq!(c, dless!((39.0, -3.0).complex()));
+        let c_ = dless!((39.0, -3.0).complex());
+        println!("{}", c_);
+
+        assert_approx_eq!(c, c_);
 
         let d = Natural::<1,1,4>::nat([1.0, 2.0, 3.0, 4.0].complex());
         println!("{}", d);
@@ -223,16 +226,10 @@ mod tests {
 
     #[test]
     fn test_linalg() {
-        // test flatte, transpose, and conjugate transpose
-        let t = Natural::<10,10,10>::randnat(0.0.complex(), 1.0.complex());
-
-        println!("{}", t);
-        println!("{}", t.flatten());
-        println!("{}", t.transpose());
         
-
-
     }
+
+
 
 }
 

@@ -4,9 +4,9 @@ use crate::dimension::Dimensionless;
 use std::marker::PhantomData;
 
 pub type Natural<const L: usize, const R: usize, const C: usize> =
-    Tensor<Dimensionless, L, R, C>;
+    Tensor<c64,Dimensionless, L, R, C>;
 
-impl<const L: usize, const R: usize, const C: usize> Tensor<Dimensionless, L, R, C>
+impl<const L: usize, const R: usize, const C: usize> Tensor<c64,Dimensionless, L, R, C>
 where
     [(); L * R * C]:,
 {
@@ -32,7 +32,7 @@ where
 }
 
 // implement item() for pure scalar
-impl Tensor<Dimensionless, 1, 1, 1> {
+impl Tensor<c64,Dimensionless, 1, 1, 1> {
     pub fn item(&self) -> c64 {
         self.data[0]
     }

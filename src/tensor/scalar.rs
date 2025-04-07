@@ -1,29 +1,59 @@
 use crate::tensor::*;
 use crate::units::*;
-use crate::complex::*;
+use crate::tensor::element::*;
 use std::marker::PhantomData;
 
-// implement common types of tensors
-pub type Scalar<D> = Tensor<D, 1, 1, 1>;
+pub type Scalar<E: TensorElement, D> = Tensor<E, D, 1, 1, 1>;
 
-// epsilon scalar
-impl<D> Scalar<D> {
-    pub const EPSILON: Scalar<D> = Scalar {
-        data: [c64 { a: f64::EPSILON, b: 0.0 }],
+impl<E: TensorElement, D> Scalar<E, D> {
+    // Require TensorElement to provide an EPSILON constant.
+    pub const EPSILON: Scalar<E, D> = Scalar {
+        data: [E::EPSILON],
         _phantom: PhantomData,
     };
+
+    // Construct a Scalar from a basic f64 value.
+    pub fn from<U: Unit<Dimension = D>>(value: E) -> Self {
+        Scalar {
+            data: [U::to_base(value.into()).into()],
+            _phantom: PhantomData,
+        }
+    }
+
+    // Return the raw underlying element.
+    pub fn raw(&self) -> E {
+        self.data[0]
+    }
+
+    // Convert the raw element into any type implementing From<E>.
+    pub fn raw_as<T: From<E>>(&self) -> T {
+        T::from(self.data[0])
+    }
+
+    // Return a scalar containing the magnitude.
+    pub fn mag(&self) -> Scalar<f64, D> {
+        Scalar {
+            data: [self.data[0].mag()],
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<E: TensorElement, D> Scalar<E, D> {
+    pub fn epsilon(&self) -> Self {
+        Self::EPSILON
+    }
 }
 
 use crate::dimension::Dimensionless;
 
-pub trait ToScalar {
-    // convert by specifying the Unit
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension>;
+/// A trait to convert a value into a Scalar tensor.
+pub trait ToScalar<E: TensorElement> {
+    fn scalar<U: Unit>(&self) -> Scalar<E, U::Dimension>;
 }
 
-impl ToScalar for c64 {
-
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
+impl<E: TensorElement> ToScalar<E> for E {
+    fn scalar<U: Unit>(&self) -> Scalar<E, U::Dimension> {
         Scalar {
             data: [*self],
             _phantom: PhantomData,
@@ -31,67 +61,3 @@ impl ToScalar for c64 {
     }
 }
 
-impl ToScalar for f64 {
-    fn scalar<U: Unit>(&self) -> Scalar<U::Dimension> {
-        Scalar {
-            data: [U::to_base(self.complex())],
-            _phantom: PhantomData,
-        }
-    }
-}
-
-// implement converting a c64 to a Scalar tensor
-impl<D> Scalar<D> {
-    pub fn from_c64<U: Unit<Dimension = D>>(value: c64) -> Self {
-        Scalar {
-            data: [U::to_base(value)],
-            _phantom: PhantomData,
-        }
-    }
-}
-
-// implement converting a float to a Scalar tensor
-impl<D> Scalar<D> {
-    pub fn from_f64<U: Unit<Dimension = D>>(value: f64) -> Self {
-        Scalar {
-            data: [U::to_base(value.complex())],
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<D> Scalar<D> {
-    // Default raw returns c64.
-    pub fn raw(&self) -> c64 {
-        self.data[0]
-    }
-
-    // Generic raw conversion into any type that implements From<c64>.
-    pub fn raw_as<T: From<c64>>(&self) -> T {
-        T::from(self.data[0])
-    }
-}
-
-// implement val() im() and re() for scalar tensors
-impl<D> Scalar<D> {
-    pub fn im(&self) -> Scalar<D> {
-        Scalar::<D> {
-            data: [self.data[0].im().complex()],
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn re(&self) -> Scalar<D> {
-        Scalar::<D> {
-            data: [self.data[0].re().complex()],
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn mag(&self) -> Scalar<D> {
-        Scalar::<D> {
-            data: [self.data[0].mag().complex()],
-            _phantom: PhantomData,
-        }
-    }
-}

@@ -191,42 +191,33 @@ impl_unit!(Ampere, Current, 1.0, 0.0, "A", "Ampere");
 // -------------------------------------------------------------------
 use std::marker::PhantomData;
 
-pub const C: Scalar<Velocity> = Scalar {
-    data: [ c64 { a: 299_792_458.0, b: 0.0}],
+pub const C: Scalar<f64,Velocity> = Scalar {
+    data: [ 299_792_458.0],
     _phantom: PhantomData
 };
 
-pub const G: Scalar<Acceleration> = Scalar {
-    data: [c64 { a: 9.80665, b: 0.0}],
+pub const G: Scalar<f64,Acceleration> = Scalar {
+    data: [ 9.80665],
     _phantom: PhantomData
 };
 
-pub const H: Scalar<dim_mul!(Energy,Time)> = Scalar {
-    data: [c64 { a: 6.62607015e-34, b: 0.0}],
+pub const H: Scalar<f64,Energy> = Scalar {
+    data: [ 6.62607015e-34],
     _phantom: PhantomData
 };
 
-pub const K: Scalar<Entropy> = Scalar {
-    data: [c64 { a: 1.380649e-23, b: 0.0}],
+pub const K: Scalar<f64,Temperature> = Scalar {
+    data: [ 1.380649e-23],
     _phantom: PhantomData
 };
 
-pub const E: Scalar<Charge> = Scalar {
-    data: [c64 { a: 1.602176634e-19, b: 0.0}],
+pub const E: Scalar<f64,Energy> = Scalar {
+    data: [ 1.602176634e-19],
     _phantom: PhantomData
 };
 
-pub const M_E: Scalar<Mass> = Scalar {
-    data: [c64 { a: 9.10938356e-31, b: 0.0}],
+pub const M: Scalar<f64,Mass> = Scalar {
+    data: [ 1.6726219e-27],
     _phantom: PhantomData
 };
 
-pub const M_P: Scalar<Mass> = Scalar {
-    data: [c64 { a: 1.6726219e-27, b: 0.0}],
-    _phantom: PhantomData
-};
-
-pub const N_A: Scalar<Amount> = Scalar {
-    data: [c64 { a: 6.02214076e23, b: 0.0}],
-    _phantom: PhantomData
-};

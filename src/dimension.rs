@@ -1,7 +1,7 @@
 use crate::units::*;
 use crate::si::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 
 pub struct Dimension<const L: i32, const M: i32, const T: i32, const Θ: i32 = 0, const I: i32 = 0, const N: i32 = 0, const J: i32 = 0>;
 
@@ -20,6 +20,20 @@ pub trait ConstNeg<const N: i32> {
 impl<const N: i32> ConstNeg<N> for () {
     const OUTPUT: i32 = -N;
 }
+
+// helper trait for integer division
+pub trait ConstDiv<const A: i32, const B: i32> {
+    const OUTPUT: i32;
+}
+
+impl<const A: i32, const B: i32> ConstDiv<A, B> for () {
+    const OUTPUT: i32 = A / B;
+}
+
+
+
+
+
 
 // Dummy constraint to force computed constants to be used.
 pub trait ConstCheck<const N: i32> {}
@@ -56,6 +70,64 @@ where
     >;
 }
 
+pub trait SquareDimension {
+    type Output;
+}
+
+// square the dimension.
+impl<
+    const L: i32, const M: i32, const T: i32,
+    const Θ: i32, const I: i32, const N: i32, const J: i32
+> SquareDimension for Dimension<L, M, T, Θ, I, N, J>
+where
+    (): ConstCheck<{ <() as ConstAdd<L, L>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<M, M>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<T, T>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<Θ, Θ>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<I, I>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<N, N>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstAdd<J, J>>::OUTPUT }>,
+{
+    type Output = Dimension<
+        { <() as ConstAdd<L, L>>::OUTPUT },
+        { <() as ConstAdd<M, M>>::OUTPUT },
+        { <() as ConstAdd<T, T>>::OUTPUT },
+        { <() as ConstAdd<Θ, Θ>>::OUTPUT },
+        { <() as ConstAdd<I, I>>::OUTPUT },
+        { <() as ConstAdd<N, N>>::OUTPUT },
+        { <() as ConstAdd<J, J>>::OUTPUT }
+    >;
+}
+
+pub trait SqrtDimension {
+    type Output;
+}
+
+// square root the dimension.
+impl<
+    const L: i32, const M: i32, const T: i32,
+    const Θ: i32, const I: i32, const N: i32, const J: i32
+> SqrtDimension for Dimension<L, M, T, Θ, I, N, J>
+
+where
+    (): ConstCheck<{ <() as ConstDiv<L, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<M, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<T, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<Θ, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<I, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<N, 2>>::OUTPUT }>,
+    (): ConstCheck<{ <() as ConstDiv<J, 2>>::OUTPUT }>,
+{
+    type Output = Dimension<
+        { <() as ConstDiv<L, 2>>::OUTPUT },
+        { <() as ConstDiv<M, 2>>::OUTPUT },
+        { <() as ConstDiv<T, 2>>::OUTPUT },
+        { <() as ConstDiv<Θ, 2>>::OUTPUT },
+        { <() as ConstDiv<I, 2>>::OUTPUT },
+        { <() as ConstDiv<N, 2>>::OUTPUT },
+        { <() as ConstDiv<J, 2>>::OUTPUT }
+    >;
+}
 // InvertDimension using the dummy ConstCheck bounds.
 pub trait InvertDimension {
     type Output;
@@ -209,7 +281,7 @@ macro_rules! dim_div {
 #[macro_export]
 macro_rules! assert_dimension {
     ($value:expr, $expected:ty) => {{
-        let _: Tensor<$expected, _,_, _> = $value;
+        let _: Tensor<_,$expected, _,_, _> = $value;
         $value
     }};
 }
