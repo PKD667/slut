@@ -23,6 +23,13 @@ impl WeakMul for i64 {
     }
 }
 
+// implment mul for f32 * complex
+impl WeakMul for f32 {
+    fn weak_mul(self, other: f64) -> Self {
+        (self as f64 * other) as f32
+    }
+}
+
 
 pub trait TensorElement:
  Copy + Clone +
@@ -115,6 +122,30 @@ impl TensorElement for f64 {
     }
 
     const EPSILON: Self = 1e-10;
+}
+
+impl TensorElement for f32 {
+    fn zero() -> Self {
+        0.0
+    }
+    fn one() -> Self {
+        1.0
+    }
+
+    fn random(min: Self, max: Self) -> Self {
+        let mut rng = rand::rng();
+        rng.random_range(min..max)
+    }
+
+    fn mag(self) -> f64 {
+        self.abs() as f64
+    }
+
+    fn conjugate(self) -> Self {
+        self
+    }
+
+    const EPSILON: Self = 1e-20;
 }
 
 impl TensorElement for i64 {

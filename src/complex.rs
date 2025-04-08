@@ -356,6 +356,12 @@ impl From<i64> for c64 {
     }
 }
 
+impl From<f32> for c64 {
+    fn from(a: f32) -> Self {
+        c64::new(a as f64, 0.0)
+    }
+}
+
 
 // implement sum
 impl Sum for c64 {
@@ -404,6 +410,13 @@ impl From<c64> for f64 {
 impl From<c64> for i64 {
     fn from(c: c64) -> Self {
         c.a as i64
+    }
+}
+
+// implement from c64 for f32
+impl From<c64> for f32 {
+    fn from(c: c64) -> Self {
+        c.a as f32
     }
 }
 
