@@ -110,3 +110,7 @@ let m = Mat3::<f32,Force>::new::<Lbf>([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9
         ( 49  64 )
         */
 ```
+
+# Installation
+
+You can find this library at [crates.io](https://crates.io/crates/slut)
