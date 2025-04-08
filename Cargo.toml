@@ -10,5 +10,4 @@ name = "dlt"# Dimensioned Tensor Library
 path = "src/lib.rs"
 
 [dependencies]
-num-traits = "0.2.19"
 rand = "0.9.0"
