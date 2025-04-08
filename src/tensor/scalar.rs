@@ -45,8 +45,6 @@ impl<E: TensorElement, D> Scalar<E, D> {
     }
 }
 
-use crate::dimension::Dimensionless;
-
 /// A trait to convert a value into a Scalar tensor.
 pub trait ToScalar<E: TensorElement> {
     fn scalar<U: Unit>(&self) -> Scalar<E, U::Dimension>;

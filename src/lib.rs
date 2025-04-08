@@ -1,6 +1,7 @@
 #![feature(generic_const_exprs)]
 #![feature(trivial_bounds)]
 #![feature(generic_arg_infer)]
+#![allow(mixed_script_confusables)]
 
 pub mod tensor;
 
