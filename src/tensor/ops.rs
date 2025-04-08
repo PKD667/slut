@@ -160,10 +160,44 @@ where
 
         Tensor {
             data,
-            _phantom: PhantomData::<
-<D as MultiplyDimensions<DS>>::Output
->,
+            _phantom: PhantomData::<<D as MultiplyDimensions<DS>>::Output>,
         }
+    }
+}
+
+impl<E, D, DS, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+    Mul<Tensor<E, DS, 1, 1, 1>> for Tensor<E, D, LAYERS, ROWS, COLS>
+where
+    E: TensorElement + Mul<Output = E> + Copy,
+    D: MultiplyDimensions<DS>,
+    [(); LAYERS * ROWS * COLS]:,
+{
+    type Output = Tensor<E, <D as MultiplyDimensions<DS>>::Output, LAYERS, ROWS, COLS>;
+
+    fn mul(self, rhs: Tensor<E, DS, 1, 1, 1>) -> Self::Output {
+        self.scale(rhs)
+    }
+}
+
+
+impl<E, D, DS, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+    Div<Tensor<E, DS, 1, 1, 1>> for Tensor<E, D, LAYERS, ROWS, COLS>
+where
+    E: TensorElement + Div<Output = E> + Copy,
+    DS: InvertDimension,
+    D: MultiplyDimensions<<DS as InvertDimension>::Output>,
+    [(); LAYERS * ROWS * COLS]:,
+{
+    type Output = Tensor<
+        E,
+        <D as MultiplyDimensions<<DS as InvertDimension>::Output>>::Output,
+        LAYERS,
+        ROWS,
+        COLS
+    >;
+
+    fn div(self, rhs: Tensor<E, DS, 1, 1, 1>) -> Self::Output {
+        self.scale(rhs.inv())
     }
 }
 
@@ -296,12 +330,13 @@ impl<
     const I: i32,
     const N: i32,
     const J: i32,
-    const COLS: usize
+    const ROWS: usize
 >
-Tensor<E, Dimension<L, M, T, Θ, I, N, J>, 1, 1, COLS>
+Tensor<E, Dimension<L, M, T, Θ, I, N, J>, 1, ROWS, 1>
 where
-    [(); 1 * 1 * COLS]:,
-    [(); 1 * COLS * 1]:,
+    [(); 1 * ROWS * 1]:,
+    [(); 1 * 1 * ROWS]:,
+    [(); ROWS * 1 * 1]:,
 {
     pub fn norm(
         self
@@ -315,8 +350,8 @@ where
         [(); { <() as ConstAdd<N, N>>::OUTPUT } as usize]:,
         [(); { <() as ConstAdd<J, J>>::OUTPUT } as usize]:,
     {
-        let ct = self.conjugate_transpose();
-        let i = self.matmul(ct);
+        let ct: Tensor<E, Dimension<L, M, T, Θ, I, N, J>, 1, 1, ROWS> = self.conjugate_transpose();
+        let i: Tensor<E, Dimension<_, _, _, _, _, _, _>, 1, 1, 1> = ct.matmul(self);
 
         // Manually extract the single element and compute sqrt().
         let val: c64 = i.data[0].into();
@@ -333,8 +368,8 @@ where
         other: Self,
     ) -> Tensor<f64, Dimension<L, M, T, Θ, I, N, J>, 1, 1, 1>
     where
-        [(); 1 * 1 * COLS]:,
-        [(); 1 * COLS * 1]:,
+        [(); 1 * ROWS * 1]:,
+        [(); 1 * 1 * ROWS]:,
         [(); { <() as ConstAdd<L, L>>::OUTPUT } as usize]:,
         [(); { <() as ConstAdd<M, M>>::OUTPUT } as usize]:,
         [(); { <() as ConstAdd<T, T>>::OUTPUT } as usize]:,
