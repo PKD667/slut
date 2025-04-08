@@ -94,6 +94,24 @@ where
     pub fn dtype(&self) -> &'static str {
         std::any::type_name::<E>()
     }
+
+    pub fn cast<T: TensorElement>(&self) -> Tensor<T, D, LAYERS, ROWS, COLS>
+    where
+        T: TensorElement,
+    {
+        let data: [T; LAYERS * ROWS * COLS] = self
+            .data
+            .iter()
+            .map(|&v| (T::from(v.into() as c64)))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 // vector of N elements

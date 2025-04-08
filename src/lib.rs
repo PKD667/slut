@@ -139,6 +139,18 @@ mod tests {
         ( 1 )
         */
 
+        // test dot product
+        let a = Vec2::<f64,Length>::new::<Meter>([1.0, 2.0]);
+        let b = Vec2::<f64,Length>::new::<Meter>([3.0, 4.0]);
+        let c = dot!(a, b);
+        println!("{}", c);
+
+        
+
+        // invert
+        let d = c.inv();
+        println!("{}", d);
+
     }
 
     #[test]
