@@ -36,16 +36,18 @@ mod tests {
         let mass = mass + Scalar::<f64,Mass>::from::<Gram>(5.0); // works
         println!("{}", mass);
         /*
-        Tensor [1x1]: M^1
+        Tensor [1x1x1]: M^1
+        -- Layer 0 --
         ( 10.005 )
         */
 
         let acc = force.scale(mass.inv()); // works
         println!("{}", acc);
         /*
-        Tensor [2x1]: L^1 * T^-2
-        ( 0.9995002 )
-        ( 1.9990004 )
+        Tensor [1x2x1]: L^1 * T^-2
+        -- Layer 0 --
+        ( 0.09995002498750624 )
+        ( 0.19990004997501248 )
         */
 
         let time = Scalar::<f64,Time>::new::<Second>([1.0]);
@@ -54,7 +56,7 @@ mod tests {
         let vel2 = vel1 + acc.scale(time); // works
         println!("{:?}", vel2.get::<MetersPerSecond>());
         /*
-        [c64 { a: 10.099950024987507, b: 0.0 }, c64 { a: 20.199900049975014, b: 0.0 }]
+        [10.099950024987507, 20.199900049975014]
         */
 
         // try to transpose a tensor
@@ -63,10 +65,12 @@ mod tests {
         println!("{}", tensor);
         println!("{}", tensor_transposed);
         /*
-        Tensor [1x6]: Dimensionless
+        Tensor [1x1x6]: Dimensionless
+        -- Layer 0 --
         ( 1  2  3  4  5  6 )
 
-        Tensor [6x1]: Dimensionless
+        Tensor [1x6x1]: Dimensionless
+        -- Layer 0 --
         ( 1 )
         ( 2 )
         ( 3 )
@@ -81,7 +85,8 @@ mod tests {
         let dot_product = dot!(length, force);
         println!("{}", dot_product);
         /*
-        Tensor [1x1]: L^2 * M^1 * T^-2
+        Tensor [1x1x1]: L^2 * M^1 * T^-2
+        -- Layer 0 --
         ( 50 )
         */
 
@@ -94,7 +99,8 @@ mod tests {
         let m3 = m1.matmul(m2);
         println!("{}", m3);
         /*
-        Tensor [2x2]: L^2
+        Tensor [1x2x2]: L^2
+        -- Layer 0 --
         ( 22  28 )
         ( 49  64 )
         */
@@ -118,9 +124,12 @@ mod tests {
                 println!("Greater than");
             }
         }
+        /*
+        Not equal
+        Greater than
+        */
 
 
-        // test macros
 
         let inv = Scalar::<f64,dim_inv!(Time)>::from::<unit_inv!(Second)>(1.0);
 
@@ -133,10 +142,12 @@ mod tests {
         println!("{}", mul);
 
         /*
-        Tensor [1x1]: T^-1
+        Tensor [1x1x1]: T^-1
+        -- Layer 0 --
         ( 1 )
 
-        Tensor [1x1]: L^2 * M^1 * T^-2 * Θ^-1
+        Tensor [1x1x1]: L^2 * M^1 * T^-2 * Θ^-1
+        -- Layer 0 --
         ( 1 )
         */
 
@@ -145,7 +156,11 @@ mod tests {
         let b = Vec2::<f64,Length>::new::<Meter>([3.0, 4.0]);
         let c = dot!(a, b);
         println!("{}", c);
-
+        /*
+            Tensor [1x1x1]: L^2
+            -- Layer 0 --
+            ( 11 )
+        */
         
 
         // invert
@@ -172,6 +187,17 @@ mod tests {
         println!("{}", a);
         println!("{}", a_h);
 
+        /*
+        Tensor [1x2x1]: Dimensionless
+        -- Layer 0 --
+        ( 2 + 4i )
+        ( 3 + 5i )
+
+        Tensor [1x1x2]: Dimensionless
+        -- Layer 0 --
+        ( 2 - 4i  3 - 5i )
+         */
+
 
 
         assert_eq!(a_h.get_at(0,0,0).raw(), c64::new(2.0, -4.0));
@@ -188,13 +214,46 @@ mod tests {
         println!("b:\n{}", b);
         println!("a†:\n{}", a.conjugate_transpose());
         println!("a† × b:\n{}", a.conjugate_transpose().matmul(b));
+        /*
+        a:
+        Tensor [1x2x1]: Dimensionless
+        -- Layer 0 --
+        ( 2 + 4i )
+        ( 3 + 5i )
+
+        b:
+        Tensor [1x2x1]: Dimensionless
+        -- Layer 0 --
+        ( 1 + 2i )
+        ( 3 + 4i )
+
+        a†:
+        Tensor [1x1x2]: Dimensionless
+        -- Layer 0 --
+        ( 2 - 4i  3 - 5i )
+
+        a† × b:
+        Tensor [1x1x1]: Dimensionless
+        -- Layer 0 --
+        ( 39 - 3i )
+         */
 
 
         let c = ip!(a,b);
         println!("c: {}",c);
+        /*
+        c: Tensor [1x1x1]: Dimensionless
+        -- Layer 0 --
+        ( 39 - 3i )
+        */
 
         let c_ = dless!((39.0, -3.0).complex());
         println!("c_: {}",c_);
+        /*
+        c_: Tensor [1x1x1]: Dimensionless
+        -- Layer 0 --
+        ( 39 - 3i )
+        */
 
         // The result should be -17 - 7i
         assert_approx_eq!(c, c_);
