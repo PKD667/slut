@@ -10,3 +10,8 @@ pub use scalar::*;
 
 pub mod natural;
 pub use natural::*;
+
+pub mod fmt;
+use fmt::*;
+
+pub mod morph;

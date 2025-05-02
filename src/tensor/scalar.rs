@@ -21,12 +21,12 @@ impl<E: TensorElement, D> Scalar<E, D> {
     }
 
     // Return the raw underlying element.
-    pub fn raw(&self) -> E {
+    pub fn item(&self) -> E {
         self.data[0]
     }
 
     // Convert the raw element into any type implementing From<E>.
-    pub fn raw_as<T: From<E>>(&self) -> T {
+    pub fn item_as<T: From<E>>(&self) -> T {
         T::from(self.data[0])
     }
 

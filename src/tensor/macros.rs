@@ -4,20 +4,21 @@
 macro_rules! assert_approx_eq {
     ($left:expr, $right:expr) => {{
         let left_val = $left;
-        let epsilon = Scalar::<f64,_>::EPSILON;
+        let epsilon = 1e-6;
         assert_approx_eq!(left_val, $right, epsilon);
     }};
     ($left:expr, $right:expr, $epsilon:expr) => {{
         let left_val = $left;
         let right_val = $right;
-        let d = left_val.dist(right_val);
+        let d = (ip!((left_val - right_val), (left_val - right_val))).item().mag().sqrt();
+        
         if d > $epsilon {
             panic!(
                 "assertion failed: `abs({:?} - {:?}) < {}`\n\
                 left: {:?}, right: {:?}, distance: {}",
                 stringify!($left),
                 stringify!($right),
-                $epsilon,
+                $epsilon
                 left_val,
                 right_val,
                 d

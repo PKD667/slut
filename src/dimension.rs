@@ -1,8 +1,8 @@
 use crate::units::*;
 use crate::si::*;
+use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Debug)]
-
 pub struct Dimension<const L: i32, const M: i32, const T: i32, const Θ: i32 = 0, const I: i32 = 0, const N: i32 = 0, const J: i32 = 0>;
 
 // A helper trait for compile‑time addition.
@@ -30,26 +30,39 @@ impl<const A: i32, const B: i32> ConstDiv<A, B> for () {
     const OUTPUT: i32 = A / B;
 }
 
-
-
-
-
-
 // Dummy constraint to force computed constants to be used.
 pub trait ConstCheck<const N: i32> {}
 impl<const N: i32> ConstCheck<N> for () {}
 
-// MultiplyDimensions using the dummy ConstCheck bounds.
-pub trait MultiplyDimensions<Other> {
+// The new generic dimension transformation trait
+pub trait DimTransform<Source> {
     type Output;
+
+    // Optional: Provides a name for debugging
+    fn name() -> &'static str {
+        "generic transform"
+    }
 }
+
+// Multiplier type to multiply dimensions
+pub struct DimMultiply<D>(PhantomData<D>);
+
+// Squaring transformation
+pub struct DimSquare;
+
+// Square root transformation
+pub struct DimSqrt;
+
+// Inversion transformation
+pub struct DimInvert;
+
+// Implementation for multiplication
 impl<
     const L1: i32, const M1: i32, const T1: i32,
     const Θ1: i32, const I1: i32, const N1: i32, const J1: i32,
     const L2: i32, const M2: i32, const T2: i32,
     const Θ2: i32, const I2: i32, const N2: i32, const J2: i32,
-> MultiplyDimensions<Dimension<L2, M2, T2, Θ2, I2, N2, J2>>
-    for Dimension<L1, M1, T1, Θ1, I1, N1, J1>
+> DimTransform<Dimension<L1, M1, T1, Θ1, I1, N1, J1>> for DimMultiply<Dimension<L2, M2, T2, Θ2, I2, N2, J2>>
 where
     (): ConstCheck<{ <() as ConstAdd<L1, L2>>::OUTPUT }>,
     (): ConstCheck<{ <() as ConstAdd<M1, M2>>::OUTPUT }>,
@@ -68,17 +81,17 @@ where
         { <() as ConstAdd<N1, N2>>::OUTPUT },
         { <() as ConstAdd<J1, J2>>::OUTPUT }
     >;
+
+    fn name() -> &'static str {
+        "multiply"
+    }
 }
 
-pub trait SquareDimension {
-    type Output;
-}
-
-// square the dimension.
+// Implementation for squaring
 impl<
     const L: i32, const M: i32, const T: i32,
     const Θ: i32, const I: i32, const N: i32, const J: i32
-> SquareDimension for Dimension<L, M, T, Θ, I, N, J>
+> DimTransform<Dimension<L, M, T, Θ, I, N, J>> for DimSquare
 where
     (): ConstCheck<{ <() as ConstAdd<L, L>>::OUTPUT }>,
     (): ConstCheck<{ <() as ConstAdd<M, M>>::OUTPUT }>,
@@ -97,18 +110,17 @@ where
         { <() as ConstAdd<N, N>>::OUTPUT },
         { <() as ConstAdd<J, J>>::OUTPUT }
     >;
+
+    fn name() -> &'static str {
+        "square"
+    }
 }
 
-pub trait SqrtDimension {
-    type Output;
-}
-
-// square root the dimension.
+// Implementation for square root
 impl<
     const L: i32, const M: i32, const T: i32,
     const Θ: i32, const I: i32, const N: i32, const J: i32
-> SqrtDimension for Dimension<L, M, T, Θ, I, N, J>
-
+> DimTransform<Dimension<L, M, T, Θ, I, N, J>> for DimSqrt
 where
     (): ConstCheck<{ <() as ConstDiv<L, 2>>::OUTPUT }>,
     (): ConstCheck<{ <() as ConstDiv<M, 2>>::OUTPUT }>,
@@ -127,15 +139,17 @@ where
         { <() as ConstDiv<N, 2>>::OUTPUT },
         { <() as ConstDiv<J, 2>>::OUTPUT }
     >;
+
+    fn name() -> &'static str {
+        "sqrt"
+    }
 }
-// InvertDimension using the dummy ConstCheck bounds.
-pub trait InvertDimension {
-    type Output;
-}
+
+// Implementation for inversion
 impl<
     const L: i32, const M: i32, const T: i32,
     const Θ: i32, const I: i32, const N: i32, const J: i32
-> InvertDimension for Dimension<L, M, T, Θ, I, N, J>
+> DimTransform<Dimension<L, M, T, Θ, I, N, J>> for DimInvert
 where
     (): ConstCheck<{ <() as ConstNeg<L>>::OUTPUT }>,
     (): ConstCheck<{ <() as ConstNeg<M>>::OUTPUT }>,
@@ -154,6 +168,58 @@ where
         { <() as ConstNeg<N>>::OUTPUT },
         { <() as ConstNeg<J>>::OUTPUT }
     >;
+
+    fn name() -> &'static str {
+        "invert"
+    }
+}
+
+// Keep old traits for backward compatibility, but implement them using DimTransform
+
+// MultiplyDimensions using the new DimTransform trait
+pub trait MultiplyDimensions<Other> {
+    type Output;
+}
+impl<D1, D2> MultiplyDimensions<D2> for D1
+where
+    DimMultiply<D2>: DimTransform<D1>,
+{
+    type Output = <DimMultiply<D2> as DimTransform<D1>>::Output;
+}
+
+pub trait SquareDimension {
+    type Output;
+}
+
+// square the dimension.
+impl<D> SquareDimension for D
+where
+    DimSquare: DimTransform<D>,
+{
+    type Output = <DimSquare as DimTransform<D>>::Output;
+}
+
+pub trait SqrtDimension {
+    type Output;
+}
+
+// square root the dimension.
+impl<D> SqrtDimension for D
+where
+    DimSqrt: DimTransform<D>,
+{
+    type Output = <DimSqrt as DimTransform<D>>::Output;
+}
+
+// InvertDimension using the new DimTransform trait.
+pub trait InvertDimension {
+    type Output;
+}
+impl<D> InvertDimension for D
+where
+    DimInvert: DimTransform<D>,
+{
+    type Output = <DimInvert as DimTransform<D>>::Output;
 }
 
 // Since Dimension is zero‑sized, we can implement Default.
@@ -164,8 +230,6 @@ impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, cons
         Self
     }
 }
-
-// Removed the NormalizeDimension and AutoNormalize traits.
 
 // Some type aliases for common dimensions.
 pub type Dimensionless = Dimension<0, 0, 0, 0, 0, 0, 0>;
@@ -253,26 +317,24 @@ macro_rules! base_unit_dim {
     };
 }
 
-// Implement multiplication for dimensions.
-
 #[macro_export]
 macro_rules! dim_inv {
-    ($dim:tt) => {
-        <$dim as InvertDimension>::Output
+    ($dim:ty) => {
+        <$dim as $crate::dimension::InvertDimension>::Output
     };
 }
 
 #[macro_export]
 macro_rules! dim_mul {
-    ($lhs:tt, $rhs:tt) => {
-        <$lhs as MultiplyDimensions<$rhs>>::Output
+    ($lhs:ty, $rhs:ty) => {
+        <$lhs as $crate::dimension::MultiplyDimensions<$rhs>>::Output
     };
 }
 
 #[macro_export]
 macro_rules! dim_div {
-    ($lhs:tt, $rhs:tt) => {
-        <$lhs as MultiplyDimensions<<$rhs as InvertDimension>::Output>>::Output
+    ($lhs:ty, $rhs:ty) => {
+        <$crate::dimension::DimMultiply<<$crate::dimension::DimInvert as $crate::dimension::DimTransform<$rhs>>::Output> as $crate::dimension::DimTransform<$lhs>>::Output
     };
 }
 

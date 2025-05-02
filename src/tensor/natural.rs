@@ -31,9 +31,3 @@ where
     }
 }
 
-// implement item() for pure scalar
-impl Tensor<c64,Dimensionless, 1, 1, 1> {
-    pub fn item(&self) -> c64 {
-        self.data[0]
-    }
-}

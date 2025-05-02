@@ -1,12 +1,14 @@
 use crate::tensor::scalar::Scalar;
 use crate::units::Unit;
 use std::marker::PhantomData;
-use std::ops::*;
+use std::{default, ops::*}; // Keep ops import for AddAssign etc.
+use std::default::Default;
 
 use crate::complex::c64;
 use crate::tensor::element::*;
+use crate::tensor::morph::{Morph, DimCombineTransform, DimAdd, DimDivide};
 
-use crate::dimension::Dimension;
+use crate::dimension::{Dimension, DimTransform, DimSquare, DimSqrt, DimInvert, DimMultiply, MultiplyDimensions, InvertDimension, Dimensionless};
 
 #[derive(Copy, Clone)]
 pub struct Tensor<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize>
@@ -61,6 +63,37 @@ where
         }
     }
 
+    pub fn apply_morph<F, DT>(&self, morph: Morph<E, F, D, DT>) -> Tensor<E, DT::Output, LAYERS, ROWS, COLS>
+    where
+        F: Fn(E) -> E,
+        DT: DimTransform<D>,
+        E: TensorElement,
+        [(); LAYERS * ROWS * COLS]:,
+    {
+        let data: [E; LAYERS * ROWS * COLS] = self
+            .data
+            .iter()
+            .map(|&v| morph.apply_to_element(v))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: morph.output_dimension_type(),
+        }
+    }
+
+    pub fn reciprocal(&self) -> Tensor<E, <DimInvert as DimTransform<D>>::Output, LAYERS, ROWS, COLS>
+    where
+        DimInvert: DimTransform<D>,
+        E: TensorElement,
+        [(); LAYERS * ROWS * COLS]:,
+    {
+        let reciprocal_morph = Morph::<E, _, D, DimInvert>::new(|v| E::one() / v);
+        self.apply_morph(reciprocal_morph)
+    }
+
     pub fn get<S: Unit<Dimension = D>>(&self) -> [E; LAYERS * ROWS * COLS] {
         self.data
             .iter()
@@ -68,6 +101,42 @@ where
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
+    }
+
+    pub fn raw(&self) -> [E; LAYERS * ROWS * COLS] {
+        self.data
+    }
+
+    pub fn reduce(
+        &self,
+        f: impl Fn(E, E) -> E,
+    ) -> E {
+        let mut result = self.data[0];
+        for i in 1..LAYERS * ROWS * COLS {
+            result = f(result, self.data[i]);
+        }
+        result
+    }
+
+    pub fn reshape<const L: usize, const R: usize, const C: usize>(
+        &self,
+    ) -> Tensor<E,D, L, R, C>
+    where
+        [(); L * R * C]:,
+    {
+        assert_eq!(LAYERS * ROWS * COLS, L * R * C);
+        let data: [E; L * R * C] = self
+            .data
+            .iter()
+            .copied()
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: PhantomData,
+        }
     }
 
     pub fn get_at(&self, layer: usize, row: usize, col: usize) -> Scalar<E,D> {
@@ -84,6 +153,35 @@ where
         let idx = layer * (ROWS * COLS) + row * COLS + col;
         self.data[idx] = value.data[0];
     }
+
+    /// Combines two tensors element-wise using a provided function `f` and a dimension transformation `DCT`.
+    pub fn combine_with_transform<F, D2, DCT>(
+        &self,
+        other: Tensor<E, D2, LAYERS, ROWS, COLS>, // Second tensor has dimension D2
+        f: F,                                     // The function to combine elements
+    ) -> Tensor<E, DCT::Output, LAYERS, ROWS, COLS> // Output tensor has dimension DCT::Output
+    where
+        F: Fn(E, E) -> E,
+        DCT: DimCombineTransform<D, D2>, // DCT defines how D and D2 combine
+        E: TensorElement,
+        [(); LAYERS * ROWS * COLS]:,
+    {
+        let data: [E; LAYERS * ROWS * COLS] = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(&v1, &v2)| f(v1, v2)) // Apply the provided function f
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: PhantomData::<DCT::Output>, // Use the output dimension from the transform
+        }
+    }
+
+
 }
 
 impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E, D, LAYERS, ROWS, COLS>
@@ -153,19 +251,18 @@ impl<E: TensorElement,D> Vec2<E,D> {
     }
 }
 
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E, D, LAYERS, ROWS, COLS>
+impl<E: TensorElement,D: Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
-    E: TensorElement,
+    E: TensorElement
 {
-    // Returns a vector of elements of type E
-    pub fn raw_vec(&self) -> Vec<E> {
-        self.data.to_vec()
-    }
 
     // Generic conversion for any Tensor into a Vec<T>.
-    pub fn raw_vec_as<T: From<E>>(&self) -> Vec<T> {
-        self.data.iter().map(|&x| T::from(x)).collect()
+    pub fn raw_as<T: From<E>>(&self) -> Vec<T> {
+        self.raw()
+            .iter()
+            .map(|&v| T::from(v))
+            .collect()
     }
 }
 
@@ -234,77 +331,4 @@ where
     }
 }
 
-/// ----- NICE PRINTING -----
-
-impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, const N: i32, const J: i32>
-    std::fmt::Display for Dimension<L, M, T, Θ, I, N, J>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // Format nonzero exponents only
-        let mut parts = Vec::new();
-        if L != 0 {
-            parts.push(format!("L^{}", L));
-        }
-        if M != 0 {
-            parts.push(format!("M^{}", M));
-        }
-        if T != 0 {
-            parts.push(format!("T^{}", T));
-        }
-        if Θ != 0 {
-            parts.push(format!("Θ^{}", Θ));
-        }
-        if I != 0 {
-            parts.push(format!("I^{}", I));
-        }
-        if N != 0 {
-            parts.push(format!("N^{}", N));
-        }
-        if J != 0 {
-            parts.push(format!("J^{}", J));
-        }
-        if parts.is_empty() {
-            write!(f, "Dimensionless")
-        } else {
-            write!(f, "{}", parts.join(" * "))
-        }
-    }
-}
-
-impl<E: TensorElement,D: std::fmt::Display + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Display
-    for Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Tensor [{}x{}x{}]: {}", LAYERS, ROWS, COLS, D::default())?;
-        // For each layer, print the matrix.
-        for l in 0..LAYERS {
-            writeln!(f, "-- Layer {} --", l)?;
-            for i in 0..ROWS {
-                write!(f, "(")?;
-                for j in 0..COLS {
-                    let idx = l * (ROWS * COLS) + i * COLS + j;
-                    write!(f, " {} ", self.data[idx])?;
-                }
-                writeln!(f, ")")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-impl<E: TensorElement,D: std::fmt::Debug + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Debug
-    for Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Tensor")
-            .field("dimension", &D::default())
-            .field("shape", &format!("{}x{}x{}", LAYERS, ROWS, COLS))
-            .field("data", &self.data)
-            .finish()
-    }
-}
 

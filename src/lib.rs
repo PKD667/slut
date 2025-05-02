@@ -13,6 +13,7 @@ pub mod units;
 use units::*;
 
 pub mod si;
+pub mod engine;
 
 
 pub mod complex;
@@ -200,8 +201,8 @@ mod tests {
 
 
 
-        assert_eq!(a_h.get_at(0,0,0).raw(), c64::new(2.0, -4.0));
-        assert_eq!(a_h.get_at(0,0,1).raw(), c64::new(3.0, -5.0));
+        assert_eq!(a_h.get_at(0,0,0).item(), c64::new(2.0, -4.0));
+        assert_eq!(a_h.get_at(0,0,1).item(), c64::new(3.0, -5.0));
     }
 
 
@@ -272,7 +273,7 @@ mod tests {
         );
 
         // Test positive definiteness
-        assert!(ip!(a,a).raw().re() >= 0.0);
+        assert!(ip!(a,a).item().re() >= 0.0);
     }
 
     #[test]
