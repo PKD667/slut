@@ -7,35 +7,26 @@ pub type Scalar<E: TensorElement, D> = Tensor<E, D, 1, 1, 1>;
 
 impl<E: TensorElement, D> Scalar<E, D> {
     // Require TensorElement to provide an EPSILON constant.
-    pub const EPSILON: Scalar<E, D> = Scalar {
-        data: [E::EPSILON],
-        _phantom: PhantomData,
-    };
+    pub const EPSILON: Scalar<E, D> = Scalar::default([E::EPSILON]);
 
     // Construct a Scalar from a basic f64 value.
     pub fn from<U: Unit<Dimension = D>>(value: E) -> Self {
-        Scalar {
-            data: [U::to_base(value.into()).into()],
-            _phantom: PhantomData,
-        }
+        Scalar::new::<U>([value])
     }
 
     // Return the raw underlying element.
     pub fn raw(&self) -> E {
-        self.data[0]
+        self.data()[0]
     }
 
     // Convert the raw element into any type implementing From<E>.
     pub fn raw_as<T: From<E>>(&self) -> T {
-        T::from(self.data[0])
+        T::from(self.raw())
     }
 
     // Return a scalar containing the magnitude.
     pub fn mag(&self) -> Scalar<f64, D> {
-        Scalar {
-            data: [self.data[0].mag()],
-            _phantom: PhantomData,
-        }
+        Scalar::default([self.raw().mag()])
     }
 }
 
@@ -52,10 +43,7 @@ pub trait ToScalar<E: TensorElement> {
 
 impl<E: TensorElement> ToScalar<E> for E {
     fn scalar<U: Unit>(&self) -> Scalar<E, U::Dimension> {
-        Scalar {
-            data: [*self],
-            _phantom: PhantomData,
-        }
+        Scalar::new::<U>([*self])
     }
 }
 

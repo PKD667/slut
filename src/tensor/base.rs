@@ -13,7 +13,7 @@ pub struct Tensor<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, c
 where
     [(); LAYERS * ROWS * COLS]:,
 {
-    pub data: [E; LAYERS * ROWS * COLS],
+    data: [E; LAYERS * ROWS * COLS],
     pub _phantom: PhantomData<D>,
 }
 
@@ -29,6 +29,13 @@ where
             .try_into()
             .unwrap();
 
+        Self {
+            data,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub const fn default(data: [E; LAYERS * ROWS * COLS]) -> Self {
         Self {
             data,
             _phantom: PhantomData,
@@ -61,6 +68,43 @@ where
         }
     }
 
+    pub fn apply<F, EO: TensorElement, DO>(&self, f: F) -> Tensor<EO, DO, LAYERS, ROWS, COLS>
+    where
+        F: Fn(E) -> EO,
+    {
+        let data: [EO; LAYERS * ROWS * COLS] = self
+            .data
+            .iter()
+            .map(|&v| f(v))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: PhantomData::<DO>,
+        }
+    }
+
+    pub fn combine<F, EO: TensorElement, DO>(&self, other: &Tensor<E, D, LAYERS, ROWS, COLS>, f: F) -> Tensor<EO, DO, LAYERS, ROWS, COLS>
+    where
+        F: Fn(E, E) -> EO,
+    {
+        let data: [EO; LAYERS * ROWS * COLS] = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(&v1, &v2)| f(v1, v2))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+
+        Tensor {
+            data,
+            _phantom: PhantomData::<DO>,
+        }
+    }
+
     pub fn get<S: Unit<Dimension = D>>(&self) -> [E; LAYERS * ROWS * COLS] {
         self.data
             .iter()
@@ -70,19 +114,84 @@ where
             .unwrap()
     }
 
-    pub fn get_at(&self, layer: usize, row: usize, col: usize) -> Scalar<E,D> {
+    pub fn get_at(&self, layer: usize, row: usize, col: usize) -> Scalar<E, D> {
         assert!(layer < LAYERS && row < ROWS && col < COLS);
         let idx = layer * (ROWS * COLS) + row * COLS + col;
-        Scalar::<E,D> {
+        Scalar::<E, D> {
             data: [self.data[idx]],
             _phantom: PhantomData,
         }
     }
 
-    pub fn set_at(&mut self, layer: usize, row: usize, col: usize, value: Scalar<E,D>) {
+    pub fn set_at(&mut self, layer: usize, row: usize, col: usize, value: Scalar<E, D>) {
         assert!(layer < LAYERS && row < ROWS && col < COLS);
         let idx = layer * (ROWS * COLS) + row * COLS + col;
         self.data[idx] = value.data[0];
+    }
+
+    pub fn size(&self) -> usize {
+        LAYERS * ROWS * COLS
+    }
+
+    pub fn shape(&self) -> (usize, usize, usize) {
+        (LAYERS, ROWS, COLS)
+    }
+
+    pub fn layers(&self) -> usize {
+        LAYERS
+    }
+
+    pub fn rows(&self) -> usize {
+        ROWS
+    }
+
+    pub fn cols(&self) -> usize {
+        COLS
+    }
+
+    pub fn data(&self) -> &[E] {
+        &self.data
+    }
+
+    pub fn transpose(self) -> Tensor<E, D, LAYERS, COLS, ROWS>
+    where
+        [(); LAYERS * COLS * ROWS]:,
+    {
+        let mut transposed = [E::zero(); LAYERS * COLS * ROWS];
+        for l in 0..LAYERS {
+            for i in 0..ROWS {
+                for j in 0..COLS {
+                    let src_idx = l * (ROWS * COLS) + i * COLS + j;
+                    let dst_idx = l * (COLS * ROWS) + j * ROWS + i;
+                    transposed[dst_idx] = self.data[src_idx];
+                }
+            }
+        }
+        Tensor::<E, D, LAYERS, COLS, ROWS> {
+            data: transposed,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn reshape<const L: usize, const R: usize, const C: usize>(&self) -> Tensor<E, D, L, R, C>
+    where
+        [(); L * R * C]:,
+    {
+        assert_eq!(LAYERS * ROWS * COLS, L * R * C, "Cannot reshape: sizes must match.");
+        let mut new_data = [E::zero(); L * R * C];
+        new_data.copy_from_slice(&self.data);
+
+        Tensor {
+            data: new_data,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn flatten(&self) -> Tensor<E, D, 1, 1, { LAYERS * ROWS * COLS }>
+    where
+        [(); 1 * 1 * (LAYERS * ROWS * COLS)]:,
+    {
+        self.reshape::<1, 1, { LAYERS * ROWS * COLS }>()
     }
 }
 
@@ -98,45 +207,27 @@ where
     where
         T: TensorElement,
     {
-        let data: [T; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .map(|&v| (T::from(v.into() as c64)))
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
+        self.apply(|v| T::from(v.into()))
     }
 }
 
-// vector of N elements
 pub type Vector<E: TensorElement, D, const N: usize> = Tensor<E, D, 1, N, 1>;
 
-// matrix of N x M elements
-pub type Matrix<E: TensorElement,D, const N: usize, const M: usize> = Tensor<E,D, 1, N, M>;
+pub type Matrix<E: TensorElement, D, const N: usize, const M: usize> = Tensor<E, D, 1, N, M>;
 
-// ----------- SPECIFIC TYPES OF TENSORS ------------
+pub type Vec2<E: TensorElement, D> = Vector<E, D, 2>;
 
-//type alias for a 2D vector
-pub type Vec2<E: TensorElement,D> = Vector<E,D, 2>;
-//type alias for a 3D vector
-pub type Vec3<E: TensorElement,D> = Vector<E,D, 3>;
-//type alias for a 4D vector
-pub type Vec4<E: TensorElement,D> = Vector<E,D, 4>;
+pub type Vec3<E: TensorElement, D> = Vector<E, D, 3>;
 
-//type alias for a 2x2 matrix
-pub type Mat2<E: TensorElement,D> = Matrix<E,D, 2, 2>;
-//type alias for a 3x3 matrix
-pub type Mat3<E: TensorElement,D> = Matrix<E,D, 3, 3>;
-//type alias for a 4x4 matrix
-pub type Mat4<E: TensorElement,D> = Matrix<E,D, 4, 4>;
+pub type Vec4<E: TensorElement, D> = Vector<E, D, 4>;
 
-impl<E: TensorElement,D> Vec2<E,D> {
-    // Returns a tuple of elements of type E (generic).
+pub type Mat2<E: TensorElement, D> = Matrix<E, D, 2, 2>;
+
+pub type Mat3<E: TensorElement, D> = Matrix<E, D, 3, 3>;
+
+pub type Mat4<E: TensorElement, D> = Matrix<E, D, 4, 4>;
+
+impl<E: TensorElement, D> Vec2<E, D> {
     pub fn raw_tuple(&self) -> (E, E)
     where
         E: TensorElement,
@@ -144,7 +235,6 @@ impl<E: TensorElement,D> Vec2<E,D> {
         (self.data[0], self.data[1])
     }
 
-    // Generic conversion for a Vec2 into a tuple of type T.
     pub fn raw_tuple_as<T: From<E>>(&self) -> (T, T)
     where
         E: TensorElement,
@@ -153,158 +243,102 @@ impl<E: TensorElement,D> Vec2<E,D> {
     }
 }
 
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E, D, LAYERS, ROWS, COLS>
+impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
     E: TensorElement,
 {
-    // Returns a vector of elements of type E
     pub fn raw_vec(&self) -> Vec<E> {
         self.data.to_vec()
     }
 
-    // Generic conversion for any Tensor into a Vec<T>.
-    pub fn raw_vec_as<T: From<E>>(&self) -> Vec<T> {
-        self.data.iter().map(|&x| T::from(x)).collect()
+    pub fn raw_vec_as<T: From<E> + TensorElement>(&self) -> Vec<T> {
+        self.apply::<_, T, D>(|x| T::from(x)).data.to_vec()
     }
 }
 
-// implement x() and y() for Vec2
-impl<E: TensorElement,D> Vec2<E,D>
+impl<E: TensorElement, D> Vec2<E, D>
 where
     E: TensorElement,
 {
-    pub fn x(&self) -> Scalar<E,D> {
-        Scalar::<E,D> {
+    pub fn x(&self) -> Scalar<E, D> {
+        Scalar::<E, D> {
             data: [self.data[0]],
             _phantom: PhantomData,
         }
     }
 
-    pub fn y(&self) -> Scalar<E,D> {
-        Scalar::<E,D> {
+    pub fn y(&self) -> Scalar<E, D> {
+        Scalar::<E, D> {
             data: [self.data[1]],
             _phantom: PhantomData,
         }
     }
 }
 
-// implement x(), y() and z() for Vec3
-impl<E: TensorElement,D> Vec3<E,D>
+impl<E: TensorElement, D> Vec3<E, D>
 where
     E: TensorElement,
 {
-    pub fn x(&self) -> Scalar<E,D> {
-        Scalar::<E,D> {
+    pub fn x(&self) -> Scalar<E, D> {
+        Scalar::<E, D> {
             data: [self.data[0]],
             _phantom: PhantomData,
         }
     }
 
-    pub fn y(&self) -> Scalar<E,D> {
-        Scalar::<E,D> {
+    pub fn y(&self) -> Scalar<E, D> {
+        Scalar::<E, D> {
             data: [self.data[1]],
             _phantom: PhantomData,
         }
     }
 
-    pub fn z(&self) -> Scalar<E,D> {
-        Scalar::<E,D> {
+    pub fn z(&self) -> Scalar<E, D> {
+        Scalar::<E, D> {
             data: [self.data[2]],
             _phantom: PhantomData,
         }
     }
 }
 
-// implement += and -= for all tensors
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> AddAssign for Tensor<E, D, LAYERS, ROWS, COLS>
+impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> PartialEq for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
-    E: TensorElement + AddAssign,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<E: TensorElement, D> PartialOrd for Tensor<E, D, 1, 1, 1>
+where
+    [(); 1]:,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.data[0].partial_cmp(&other.data[0])
+    }
+}
+
+impl<E: TensorElement + AddAssign, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> AddAssign for Tensor<E, D, LAYERS, ROWS, COLS>
+where
+    [(); LAYERS * ROWS * COLS]:,
 {
     fn add_assign(&mut self, other: Self) {
-        for i in 0..LAYERS {
-            for j in 0..ROWS {
-                for k in 0..COLS {
-                    let idx = i * (ROWS * COLS) + j * COLS + k;
-                    self.data[idx] += other.data[idx];
-                }
-            }
+        for (a, b) in self.data.iter_mut().zip(other.data.iter()) {
+            *a += *b;
         }
     }
 }
 
-/// ----- NICE PRINTING -----
-
-impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, const N: i32, const J: i32>
-    std::fmt::Display for Dimension<L, M, T, Θ, I, N, J>
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        // Format nonzero exponents only
-        let mut parts = Vec::new();
-        if L != 0 {
-            parts.push(format!("L^{}", L));
-        }
-        if M != 0 {
-            parts.push(format!("M^{}", M));
-        }
-        if T != 0 {
-            parts.push(format!("T^{}", T));
-        }
-        if Θ != 0 {
-            parts.push(format!("Θ^{}", Θ));
-        }
-        if I != 0 {
-            parts.push(format!("I^{}", I));
-        }
-        if N != 0 {
-            parts.push(format!("N^{}", N));
-        }
-        if J != 0 {
-            parts.push(format!("J^{}", J));
-        }
-        if parts.is_empty() {
-            write!(f, "Dimensionless")
-        } else {
-            write!(f, "{}", parts.join(" * "))
-        }
-    }
-}
-
-impl<E: TensorElement,D: std::fmt::Display + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Display
-    for Tensor<E,D, LAYERS, ROWS, COLS>
+impl<E: TensorElement + SubAssign, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> SubAssign for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Tensor [{}x{}x{}]: {}", LAYERS, ROWS, COLS, D::default())?;
-        // For each layer, print the matrix.
-        for l in 0..LAYERS {
-            writeln!(f, "-- Layer {} --", l)?;
-            for i in 0..ROWS {
-                write!(f, "(")?;
-                for j in 0..COLS {
-                    let idx = l * (ROWS * COLS) + i * COLS + j;
-                    write!(f, " {} ", self.data[idx])?;
-                }
-                writeln!(f, ")")?;
-            }
+    fn sub_assign(&mut self, other: Self) {
+        for (a, b) in self.data.iter_mut().zip(other.data.iter()) {
+            *a -= *b;
         }
-        Ok(())
-    }
-}
-
-impl<E: TensorElement,D: std::fmt::Debug + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Debug
-    for Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Tensor")
-            .field("dimension", &D::default())
-            .field("shape", &format!("{}x{}x{}", LAYERS, ROWS, COLS))
-            .field("data", &self.data)
-            .finish()
     }
 }
 

@@ -11,10 +11,7 @@ where
     [(); L * R * C]:,
 {
     pub fn nat(values: [c64; L * R * C]) -> Self {
-        Self {
-            data: values,
-            _phantom: PhantomData,
-        }
+        Tensor::default(values)
     }
 
     pub fn randnat(min: c64, max: c64) -> Self {
@@ -24,16 +21,13 @@ where
             .try_into()
             .unwrap();
 
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
+        Tensor::default(data)
     }
 }
 
 // implement item() for pure scalar
 impl Tensor<c64,Dimensionless, 1, 1, 1> {
     pub fn item(&self) -> c64 {
-        self.data[0]
+        self.raw()
     }
 }

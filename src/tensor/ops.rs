@@ -8,6 +8,8 @@ use std::marker::PhantomData;
 use std::ops::{Add, Mul, Neg, Sub, Div};
 use crate::*;
 
+use super::Scalar;
+
 // -----------------------------------------
 // ============= OPERATIONS ================
 // -----------------------------------------
@@ -20,19 +22,7 @@ where
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| a + b)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| a + b)
     }
 }
 
@@ -44,19 +34,7 @@ where
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| a - b)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| a - b)
     }
 }
 
@@ -104,6 +82,12 @@ where
         [(); LAYERS * ROWS * COLS]:,
         [(); COLS]:,
     {
+        // TODO: Abstract away the direct data access
+        let data = self.data();
+        let other_data = other.data();
+        // code above is BAD, VERY BAD
+        // SORRY
+
         // Create a vector to store the output tensor, initializing all entries to zero.
         let mut result = vec![E::zero(); LAYERS * ROWS * COLS];
 
@@ -116,7 +100,7 @@ where
                     for k in 0..COMMON {
                         let index_a = layer * (ROWS * COMMON) + row * COMMON + k;
                         let index_b = layer * (COMMON * COLS) + k * COLS + col;
-                        sum = sum + self.data[index_a] * other.data[index_b];
+                        sum = sum + data[index_a] * other_data[index_b];
                     }
                     let index_result = layer * (ROWS * COLS) + row * COLS + col;
                     result[index_result] = sum;
@@ -128,10 +112,8 @@ where
         let data: [E; LAYERS * ROWS * COLS] =
             result.into_iter().collect::<Vec<E>>().try_into().unwrap();
 
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
+        Tensor::default(data)
+
     }
 }
 
@@ -149,19 +131,7 @@ where
         D: MultiplyDimensions<DS>,
         <D as MultiplyDimensions<DS>>::Output:,
             {
-        let s = scalar.data[0];
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .map(|&v| v * s)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Tensor {
-            data,
-            _phantom: PhantomData::<<D as MultiplyDimensions<DS>>::Output>,
-        }
+        self.apply::<_, E, <D as MultiplyDimensions<DS>>::Output>(|v| v * scalar.raw())
     }
 }
 
@@ -209,11 +179,7 @@ where
     where
         D: InvertDimension,
     {
-        let data: [E; 1] = [E::one() / self.data[0]];
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
+        self.apply::<_, E, <D as InvertDimension>::Output>(|v| E::one() / v)
     }
 }
 
@@ -225,18 +191,7 @@ where
     type Output = Self;
 
     fn neg(self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .map(|&v| -v)
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.apply::<_, E, D>(|v| -v)
     }
 }
 
@@ -247,17 +202,7 @@ where
 {
     /// Converts the tensor to one with c64 elements by mapping each element via Into<c64>.
     pub fn to_c64(&self) -> Tensor<c64, D, LAYERS, ROWS, COLS> {
-        let data: [c64; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .map(|&v| v.into())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
+        self.apply::<_, c64, D>(|v| v.into())
     }
 }
 
@@ -267,18 +212,7 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn conjugate(self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .map(|&v| v.conjugate())
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.apply::<_, E, D>(|v| v.conjugate())
     }
 
     /// Returns the conjugate transpose of this tensor.
@@ -289,36 +223,6 @@ where
         self.transpose().conjugate()
     }
 }
-
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    /// Returns the transpose of this tensor.
-    pub fn transpose(self) -> Tensor<E,D, LAYERS, COLS, ROWS>
-    where
-        [(); LAYERS * COLS * ROWS]:,
-    {
-        let mut transposed = [E::zero(); LAYERS * COLS * ROWS];
-        for l in 0..LAYERS {
-            for i in 0..ROWS {
-                for j in 0..COLS {
-                    // Element at (i, j) moves to (j, i)
-                    let src = l * (ROWS * COLS) + i * COLS + j;
-                    let dst = l * (COLS * ROWS) + j * ROWS + i;
-                    transposed[dst] = self.data[src];
-                }
-            }
-        }
-        Tensor::<E,D, LAYERS, COLS, ROWS> {
-            data: transposed,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-
-
 
 // Fix the call site by manually extracting the element for sqrt:
 impl<
@@ -354,13 +258,8 @@ where
         let i: Tensor<E, Dimension<_, _, _, _, _, _, _>, 1, 1, 1> = ct.matmul(self);
 
         // Manually extract the single element and compute sqrt().
-        let val: c64 = i.data[0].into();
-        let sqrt_val = f64::from(val.sqrt());
-
-        Tensor {
-            data: [sqrt_val],
-            _phantom: PhantomData,
-        }
+        let val:f64 = i.cast::<c64>().raw().sqrt().mag();
+        Scalar::default([val])
     }
 
     pub fn dist(
@@ -382,37 +281,6 @@ where
        sub.norm()
     }
 
-}
-    
-// Implement elementwise equality for all tensors.
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> PartialEq for Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.data
-            .iter()
-            .zip(other.data.iter())
-            .all(|(&a, &b)| a == b)
-    }
-}
-
-// Optionally, if c64: Eq then implement Eq.
-impl<E:TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Eq for Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-    c64: Eq,
-{
-}
-
-// Implement ordering (>, >=, <, <=) for 1×1×1 tensors only.
-impl<E: TensorElement,D> PartialOrd for Tensor<E,D, 1, 1, 1>
-where
-    [(); 1]:,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.data[0].partial_cmp(&other.data[0])
-    }
 }
 
 // implement dot product as macro that does transpose and multiply
@@ -445,73 +313,6 @@ macro_rules! ip {
     };
 }
 
-// linear algebraic stuff
-// reshape, flatten, etc.
-
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    /// Returns the number of elements in the tensor.
-    pub fn size(&self) -> usize {
-        LAYERS * ROWS * COLS
-    }
-
-    pub fn shape(&self) -> (usize, usize, usize) {
-        (LAYERS, ROWS, COLS)
-    }
-
-    /// Returns the number of layers in the tensor.
-    pub fn layers(&self) -> usize {
-        LAYERS
-    }
-
-    /// Returns the number of rows in the tensor.
-    pub fn rows(&self) -> usize {
-        ROWS
-    }
-
-    /// Returns the number of columns in the tensor.
-    pub fn cols(&self) -> usize {
-        COLS
-    }
-
-    /// Returns the data as a slice.
-    pub fn data(&self) -> &[E] {
-        &self.data
-    }
-
-    pub fn reshape<const L: usize, const R: usize, const C: usize>(
-        &self,
-    ) -> Tensor<E,D, L, R, C>
-    where
-        [(); L * R * C]:,
-    {
-        assert_eq!(LAYERS * ROWS * COLS, L * R * C);
-        let data: [E; L * R * C] = self
-            .data
-            .iter()
-            .copied()
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Tensor {
-            data,
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn flatten(&self) -> Tensor<E,D, 1, 1, {LAYERS * ROWS * COLS}>
-    where
-        [(); LAYERS * ROWS * COLS]:,
-        [(); 1 * 1 * (LAYERS * ROWS * COLS)]:,
-    {
-        self.reshape::<1, 1, {LAYERS * ROWS * COLS}>()
-    }
-
-}
-
 // implement all the boolean operations (and, or, xor, not) 
 // they should return a tensor of the same size wth 0s and 1s
 impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
@@ -519,19 +320,7 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn and(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a != E::zero() && b != E::zero() { E::one() } else { E::zero() })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a != E::zero() && b != E::zero() { E::one() } else { E::zero() })
     }
 }
 
@@ -541,44 +330,18 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn or(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a != E::zero() || b != E::zero() { E::one() } else { E::zero() })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a != E::zero() || b != E::zero() { E::one() } else { E::zero() })
     }
 }
 
-
-
-// implement all the comparison operations (eq, ne, gt, ge, lt, le)
+// implement all the comparison operations (eq, ne, gt, ge)
 // overload the operators
 impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn eq(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a == b { E::one() } else { E::zero() })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a == b { E::one() } else { E::zero() })
     }
 }
 impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
@@ -586,19 +349,7 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn ne(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a != b { E::one() } else { E::one() })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a != b { E::one() } else { E::zero() })
     }
 }
 impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
@@ -606,18 +357,7 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn gt(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a > b { E::one() } else { E::zero() })
-            .collect::<Vec<_>>()    
-            .try_into()
-            .unwrap();
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a > b { E::one() } else { E::zero() })
     }
 }
 
@@ -626,18 +366,6 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn ge(self, other: Self) -> Self {
-        let data: [E; LAYERS * ROWS * COLS] = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| if a >= b { E::zero() } else { E::one() })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap();
-
-        Self {
-            data,
-            _phantom: PhantomData,
-        }
+        self.combine::<_, E, D>(&other, |a, b| if a >= b { E::one() } else { E::zero() })
     }
 }
