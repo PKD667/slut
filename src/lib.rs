@@ -115,6 +115,8 @@ mod tests {
 
         let mass2 = Scalar::<f64,Mass>::from::<Kilogram>(10.0);
 
+        println!("The mass is {}g", mass.get::<Gram>()[0]);
+
         if (mass == mass2) {
             println!("Equal");
         } else {

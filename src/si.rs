@@ -191,33 +191,19 @@ impl_unit!(Ampere, Current, 1.0, 0.0, "A", "Ampere");
 // -------------------------------------------------------------------
 use std::marker::PhantomData;
 
-pub const C: Scalar<f64,Velocity> = Scalar {
-    data: [ 299_792_458.0],
-    _phantom: PhantomData
-};
-
-pub const G: Scalar<f64,Acceleration> = Scalar {
-    data: [ 9.80665],
-    _phantom: PhantomData
-};
-
-pub const H: Scalar<f64,Energy> = Scalar {
-    data: [ 6.62607015e-34],
-    _phantom: PhantomData
-};
-
-pub const K: Scalar<f64,Temperature> = Scalar {
-    data: [ 1.380649e-23],
-    _phantom: PhantomData
-};
-
-pub const E: Scalar<f64,Energy> = Scalar {
-    data: [ 1.602176634e-19],
-    _phantom: PhantomData
-};
-
-pub const M: Scalar<f64,Mass> = Scalar {
-    data: [ 1.6726219e-27],
-    _phantom: PhantomData
-};
-
+// speed of light in m/s
+pub const C: Scalar<f64,Velocity> = Scalar::default([ 299_792_458.0 ]);
+// Gravitational constant in m³/(kg·s²)
+pub const G: Scalar<f64,dim_mul!(
+    Length,
+    (dim_mul!(
+        Mass,
+        (dim_inv!(Time))
+    ))
+)> = Scalar::default([ 6.67430e-11]);
+// gravity on Earth's surface in m/s²
+pub const G_EARTH: Scalar<f64,Acceleration> = Scalar::default([ 9.80665 ]);
+// planck constant in J·s
+pub const H: Scalar<f64,dim_mul!(Energy,Frequency)> = Scalar::default([ 6.62607015e-34]);
+// Boltzmann constant in J/K
+pub const K: Scalar<f64,Entropy> = Scalar::default([ 1.380649e-23]);
