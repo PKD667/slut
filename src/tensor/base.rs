@@ -86,6 +86,38 @@ where
         }
     }
 
+    // init a tensor with a function that takes indices
+    pub fn init(
+        f: impl Fn(usize, usize, usize) -> E,
+    ) -> Tensor<E, D, LAYERS, ROWS, COLS>
+    where
+        [(); LAYERS * ROWS * COLS]:,
+    {
+        let mut data = [E::zero(); LAYERS * ROWS * COLS];
+        for l in 0..LAYERS {
+            for r in 0..ROWS {
+                for c in 0..COLS {
+                    let idx = l * (ROWS * COLS) + r * COLS + c;
+                    data[idx] = f(l, r, c);
+                }
+            }
+        }
+        Tensor {
+            data,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn init_2d(
+        f: impl Fn(usize, usize) -> E,
+    ) -> Tensor<E, D, 1, ROWS, COLS>
+    where
+        [(); 1 * ROWS * COLS]:,
+    {
+        Tensor::<E, D, 1, ROWS, COLS>::init(|_, r, c| f(r, c))
+    }
+
+
     pub fn combine<F, EO: TensorElement, DO>(&self, other: &Tensor<E, D, LAYERS, ROWS, COLS>, f: F) -> Tensor<EO, DO, LAYERS, ROWS, COLS>
     where
         F: Fn(E, E) -> EO,

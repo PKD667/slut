@@ -299,8 +299,17 @@ mod tests {
     }
 
     #[test]
-    fn test_linalg() {
+    fn test_init() {
         
+        let f = Natural::<1,3,4>::init(|i, j, k| {
+            c64::new(i as f64 + j as f64 + k as f64, 0.0)
+        });
+        println!("{}", f);
+
+        let v = Matrix::<f64,Dimensionless,10,10>::init_2d(|i, j| {
+            (i + j) as f64
+        });
+        println!("{}", v);
     }
 
 
