@@ -1,17 +1,16 @@
-
 // filepath: /home/pkd/code/rust/dlt/src/tensor/macros.rs
 #[macro_export]
 macro_rules! assert_approx_eq {
     ($left:expr, $right:expr) => {{
         let left_val = $left;
-        let epsilon = Scalar::<f64,_>::EPSILON;
+        let epsilon = Tensor::<f64, crate::dimension::Dimensionless, 1, 1, 1>::default([1e-10]);
         assert_approx_eq!(left_val, $right, epsilon);
     }};
     ($left:expr, $right:expr, $epsilon:expr) => {{
         let left_val = $left;
         let right_val = $right;
-        let d = left_val.dist(right_val);
-        if d > $epsilon {
+        let d = dist!(left_val, right_val);
+        if d.raw() > $epsilon.raw() {
             panic!(
                 "assertion failed: `abs({:?} - {:?}) < {}`\n\
                 left: {:?}, right: {:?}, distance: {}",
@@ -20,7 +19,7 @@ macro_rules! assert_approx_eq {
                 $epsilon,
                 left_val,
                 right_val,
-                d
+                d.raw()
             );
         }
     }};

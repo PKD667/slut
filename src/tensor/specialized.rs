@@ -3,26 +3,27 @@ use crate::tensor::base::Tensor;
 use crate::tensor::scalar::Scalar;
 use std::marker::PhantomData;
 use std::ops::{AddAssign, SubAssign};
+use crate::tensor::base::Op;
 
 // Type aliases for common tensor shapes
-pub type Vector<E: TensorElement, D, const N: usize> = Tensor<E, D, 1, N, 1>
+pub type Vector<E: TensorElement, D: Clone, const N: usize> = Tensor<E, D, 1, N, 1>
 where
     [(); 1 * N * 1]:;
 
-pub type Matrix<E: TensorElement, D, const N: usize, const M: usize> = Tensor<E, D, 1, N, M>
+pub type Matrix<E: TensorElement, D: Clone, const N: usize, const M: usize> = Tensor<E, D, 1, N, M>
 where
     [(); 1 * N * M]:;
 
-pub type Vec2<E: TensorElement, D> = Vector<E, D, 2>;
-pub type Vec3<E: TensorElement, D> = Vector<E, D, 3>;
-pub type Vec4<E: TensorElement, D> = Vector<E, D, 4>;
+pub type Vec2<E: TensorElement, D: Clone> = Vector<E, D, 2>;
+pub type Vec3<E: TensorElement, D: Clone> = Vector<E, D, 3>;
+pub type Vec4<E: TensorElement, D: Clone> = Vector<E, D, 4>;
 
-pub type Mat2<E: TensorElement, D> = Matrix<E, D, 2, 2>;
-pub type Mat3<E: TensorElement, D> = Matrix<E, D, 3, 3>;
-pub type Mat4<E: TensorElement, D> = Matrix<E, D, 4, 4>;
+pub type Mat2<E: TensorElement, D: Clone> = Matrix<E, D, 2, 2>;
+pub type Mat3<E: TensorElement, D: Clone> = Matrix<E, D, 3, 3>;
+pub type Mat4<E: TensorElement, D: Clone> = Matrix<E, D, 4, 4>;
 
 // Specialized methods for Vec2
-impl<E: TensorElement, D> Vec2<E, D> {
+impl<E: TensorElement, D: Clone> Vec2<E, D> {
     pub fn raw_tuple(&self) -> (E, E)
     where
         E: TensorElement,
@@ -41,7 +42,7 @@ impl<E: TensorElement, D> Vec2<E, D> {
 }
 
 // Specialized methods for Vec3
-impl<E: TensorElement, D> Vec3<E, D>
+impl<E: TensorElement, D: Clone> Vec3<E, D>
 where
     E: TensorElement,
 {
@@ -59,7 +60,7 @@ where
 }
 
 // Trait implementations that don't require data access
-impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> PartialEq
+impl<E: TensorElement, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize> PartialEq
     for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
@@ -69,7 +70,7 @@ where
     }
 }
 
-impl<E: TensorElement, D> PartialOrd for Tensor<E, D, 1, 1, 1>
+impl<E: TensorElement, D: Clone> PartialOrd for Tensor<E, D, 1, 1, 1>
 where
     [(); 1]:,
 {
@@ -80,30 +81,24 @@ where
     }
 }
 
-impl<E: TensorElement + AddAssign, D, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+impl<E: TensorElement + AddAssign, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize>
     AddAssign for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
+    Op<E, D, LAYERS, ROWS, COLS>: Copy,
 {
     fn add_assign(&mut self, other: Self) {
-        *self = self.combine(&other, |a, b| {
-            let mut result = a;
-            result += b;
-            result
-        });
+        *self = self.add(&other);
     }
 }
 
-impl<E: TensorElement + SubAssign, D, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+impl<E: TensorElement + SubAssign, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize>
     SubAssign for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
+    Op<E, D, LAYERS, ROWS, COLS>: Copy,
 {
     fn sub_assign(&mut self, other: Self) {
-        *self = self.combine(&other, |a, b| {
-            let mut result = a;
-            result -= b;
-            result
-        });
+        *self = self.sub(&other);
     }
 } 

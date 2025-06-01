@@ -36,14 +36,15 @@ impl<const L: i32, const M: i32, const T: i32, const Θ: i32, const I: i32, cons
     }
 }
 
-impl<E: TensorElement, D: std::fmt::Display + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Display
+impl<E: TensorElement, D: std::fmt::Display + Default + Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Display
     for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 
-        let data: &[E] = self.data();
+        let data_vec = self.data();
+        let data: &[E] = data_vec.as_slice();
 
         writeln!(f, "Tensor [{}x{}x{}]: {}", LAYERS, ROWS, COLS, D::default())?;
         for l in 0..LAYERS {
@@ -61,7 +62,7 @@ where
     }
 }
 
-impl<E: TensorElement, D: std::fmt::Debug + Default, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Debug
+impl<E: TensorElement, D: std::fmt::Debug + Default + Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize> std::fmt::Debug
     for Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
@@ -70,7 +71,7 @@ where
         f.debug_struct("Tensor")
             .field("dimension", &D::default())
             .field("shape", &format!("{}x{}x{}", LAYERS, ROWS, COLS))
-            .field("data", &self.data())
+            .field("data", &self.data().as_slice())
             .finish()
     }
 }

@@ -2,7 +2,7 @@ use crate::tensor::element::TensorElement;
 use crate::tensor::base::Tensor;
 use std::marker::PhantomData;
 
-impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+impl<E: TensorElement, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize>
     Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
@@ -10,11 +10,6 @@ where
     /// Returns the total number of elements in the tensor
     pub fn size(&self) -> usize {
         LAYERS * ROWS * COLS
-    }
-
-    /// Returns the shape as (layers, rows, cols)
-    pub fn shape(&self) -> (usize, usize, usize) {
-        (LAYERS, ROWS, COLS)
     }
 
     /// Returns the number of layers
@@ -45,12 +40,15 @@ where
         self.reshape::<1, 1, { LAYERS * ROWS * COLS }>()
     }
 
-    /// Casts the tensor to a different element type using apply
+    /// Cast to another type
     pub fn cast<T: TensorElement>(&self) -> Tensor<T, D, LAYERS, ROWS, COLS>
     where
         T: TensorElement,
     {
-        self.apply_with_dimension(|v| T::from(v.into()))
+        // For casting, we create a new tensor with converted data
+        let current_data = self.realize();
+        let new_data: [T; LAYERS * ROWS * COLS] = current_data.map(|v| T::from(v.into()));
+        Tensor::from_data(new_data)
     }
 
     /// Converts to raw vector using data()
@@ -58,8 +56,9 @@ where
         self.data().to_vec()
     }
 
-    /// Converts to raw vector with type conversion using apply
+    /// Get raw data as vector of target type
     pub fn raw_vec_as<T: From<E> + TensorElement>(&self) -> Vec<T> {
-        self.apply_with_dimension::<_, T, D>(|x| T::from(x)).data().to_vec()
+        let current_data = self.realize();
+        current_data.iter().map(|&x| T::from(x)).collect::<Vec<_>>()
     }
 } 
