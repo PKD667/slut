@@ -53,9 +53,16 @@ pub trait Unit {
 
     /// Returns the conversion ratio from the current unit into unit T.
     ///
-    /// The ratio is computed as:
+    /// # Example
     /// 
-    ///     self.scale / T::parameters().scale
+    /// ```
+    /// use slut::units::Unit;
+    /// use slut::si::{Meter, Centimeter};
+    /// 
+    /// // Get the ratio from meters to centimeters
+    /// let ratio = Meter::ratio::<Centimeter>();
+    /// assert_eq!(ratio, 100.0); // 1 meter = 100 centimeters
+    /// ```
     ///
     /// This function assumes that both units share the same Dimension.
     fn ratio<T: Unit<Dimension = Self::Dimension>>() -> f64 {

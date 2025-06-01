@@ -4,7 +4,9 @@ use crate::dimension::Dimensionless;
 use std::marker::PhantomData;
 
 pub type Natural<const L: usize, const R: usize, const C: usize> =
-    Tensor<c64,Dimensionless, L, R, C>;
+    Tensor<c64,Dimensionless, L, R, C>
+where
+    [(); L * R * C]:;
 
 impl<const L: usize, const R: usize, const C: usize> Tensor<c64,Dimensionless, L, R, C>
 where

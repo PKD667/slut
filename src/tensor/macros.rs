@@ -26,6 +26,15 @@ macro_rules! assert_approx_eq {
     }};
 }
 
+#[macro_export]
+macro_rules! assert_shape {
+    ($tensor:expr, $shape:expr) => {{
+        let tensor = $tensor;
+        let shape = $shape;
+        assert_eq!(tensor.shape(), shape);
+    }};
+}
+
 
 // macros for math shit
 #[macro_export]

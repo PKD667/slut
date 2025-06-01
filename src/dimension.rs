@@ -285,3 +285,10 @@ macro_rules! assert_dimension {
         $value
     }};
 }
+
+#[macro_export]
+macro_rules! dim_sqrt {
+    ($dim:tt) => {
+        <$dim as SqrtDimension>::Output
+    };
+}

@@ -1,10 +1,9 @@
 // Tensor operation implementations
 
 use crate::complex::c64;
-use crate::dimension::{Dimension, InvertDimension, MultiplyDimensions};
+use crate::dimension::{Dimension, InvertDimension, MultiplyDimensions, SqrtDimension, Dimensionless, ConstAdd};
 use crate::tensor::element::TensorElement;
-use crate::tensor::Tensor;
-use std::marker::PhantomData;
+use crate::tensor::base::Tensor;
 use std::ops::{Add, Mul, Neg, Sub, Div};
 use crate::*;
 
@@ -22,7 +21,7 @@ where
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| a + b)
+        self.combine(&other, |a, b| a + b)
     }
 }
 
@@ -34,86 +33,60 @@ where
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| a - b)
+        self.combine(&other, |a, b| a - b)
     }
 }
 
-impl<
-    E: TensorElement + Mul<Output = E> + Add<Output = E> + Copy,
-    const LAYERS: usize,
-    const L1: i32,
-    const M1: i32,
-    const T1: i32,
-    const Θ1: i32,
-    const I1: i32,
-    const N1: i32,
-    const J1: i32,
-    const ROWS: usize,
-    const COMMON: usize,
-> Tensor<E, Dimension<L1, M1, T1, Θ1, I1, N1, J1>, LAYERS, ROWS, COMMON>
+// Matrix multiplication using outer product sum - simplified constraints
+impl<E: TensorElement + Mul<Output = E> + Add<Output = E> + Copy, D, const LAYERS: usize, const ROWS: usize, const COMMON: usize>
+Tensor<E, D, LAYERS, ROWS, COMMON>
 where
     [(); LAYERS * ROWS * COMMON]:,
+    D: Copy,
 {
-    /// Performs matrix multiplication between two tensors.
-    pub fn matmul<
-        const L2: i32,
-        const M2: i32,
-        const T2: i32,
-        const Θ2: i32,
-        const I2: i32,
-        const N2: i32,
-        const J2: i32,
-        const COLS: usize,
-    >(
+    /// Matrix multiplication using outer product sum approach
+    /// A @ B = sum_k(A[:, k] ⊗ B[k, :])
+    pub fn matmul<DO, const COLS: usize>(
         self,
-        other: Tensor<E, Dimension<L2, M2, T2, Θ2, I2, N2, J2>, LAYERS, COMMON, COLS>,
-    ) -> Tensor<
-        E,
-        <Dimension<L1, M1, T1, Θ1, I1, N1, J1> as MultiplyDimensions<
-            Dimension<L2, M2, T2, Θ2, I2, N2, J2>
-        >>::Output,
-        LAYERS,
-        ROWS,
-        COLS,
-    >
+        other: Tensor<E, DO, LAYERS, COMMON, COLS>,
+    ) -> Tensor<E, <D as MultiplyDimensions<DO>>::Output, LAYERS, ROWS, COLS>
     where
-        Dimension<L1, M1, T1, Θ1, I1, N1, J1>: MultiplyDimensions<Dimension<L2, M2, T2, Θ2, I2, N2, J2>>,
+        D: MultiplyDimensions<DO>,
+        DO: Copy,
+        <D as MultiplyDimensions<DO>>::Output: Copy,
         [(); LAYERS * COMMON * COLS]:,
         [(); LAYERS * ROWS * COLS]:,
-        [(); COLS]:,
+        [(); LAYERS * ROWS * 1]:,
+        [(); LAYERS * 1 * COLS]:,
+        [(); LAYERS * COLS * COMMON]:,  // For transpose in get_rows
+        [(); LAYERS * COLS * 1]:,       // For get_cols on transposed tensor
     {
-        // TODO: Abstract away the direct data access
-        let data = self.data();
-        let other_data = other.data();
-        // code above is BAD, VERY BAD
-        // SORRY
-
-        // Create a vector to store the output tensor, initializing all entries to zero.
-        let mut result = vec![E::zero(); LAYERS * ROWS * COLS];
-
-        // Iterate over layers, rows, and columns to compute each element.
-        for layer in 0..LAYERS {
-            for row in 0..ROWS {
-                for col in 0..COLS {
-                    let mut sum = E::zero();
-                    // Compute the dot product for the current (layer, row, col) element.
-                    for k in 0..COMMON {
-                        let index_a = layer * (ROWS * COMMON) + row * COMMON + k;
-                        let index_b = layer * (COMMON * COLS) + k * COLS + col;
-                        sum = sum + data[index_a] * other_data[index_b];
-                    }
-                    let index_result = layer * (ROWS * COLS) + row * COLS + col;
-                    result[index_result] = sum;
-                }
-            }
+        // Get all columns from A and all rows from B
+        let cols_a = self.get_cols();
+        let rows_b = other.get_rows();
+        
+        // Initialize result to zero
+        let mut result = None;
+        
+        // For each k in the inner dimension (COMMON)
+        for k in 0..COMMON {
+            // Get column k from A: (LAYERS, ROWS, 1)
+            let col_a = &cols_a[k];
+            
+            // Get row k from B: (LAYERS, 1, COLS)  
+            let row_b = &rows_b[k];
+            
+            // Compute outer product: col_A ⊗ row_B -> (LAYERS, ROWS, COLS)
+            let outer_prod = Self::outer_product(col_a, row_b);
+            
+            // Add to result
+            result = match result {
+                None => Some(outer_prod),
+                Some(acc) => Some(acc + outer_prod),
+            };
         }
-
-        // Convert the result vector into an array.
-        let data: [E; LAYERS * ROWS * COLS] =
-            result.into_iter().collect::<Vec<E>>().try_into().unwrap();
-
-        Tensor::default(data)
-
+        
+        result.expect("Matrix multiplication requires at least one iteration (COMMON > 0)")
     }
 }
 
@@ -131,7 +104,7 @@ where
         D: MultiplyDimensions<DS>,
         <D as MultiplyDimensions<DS>>::Output:,
             {
-        self.apply::<_, E, <D as MultiplyDimensions<DS>>::Output>(|v| v * scalar.raw())
+        self.apply_with_dimension::<_, E, <D as MultiplyDimensions<DS>>::Output>(|v| v * scalar.raw())
     }
 }
 
@@ -179,7 +152,7 @@ where
     where
         D: InvertDimension,
     {
-        self.apply::<_, E, <D as InvertDimension>::Output>(|v| E::one() / v)
+        self.apply_with_dimension::<_, E, <D as InvertDimension>::Output>(|v| E::one() / v)
     }
 }
 
@@ -191,7 +164,7 @@ where
     type Output = Self;
 
     fn neg(self) -> Self {
-        self.apply::<_, E, D>(|v| -v)
+        self.apply(|v| -v)
     }
 }
 
@@ -202,7 +175,7 @@ where
 {
     /// Converts the tensor to one with c64 elements by mapping each element via Into<c64>.
     pub fn to_c64(&self) -> Tensor<c64, D, LAYERS, ROWS, COLS> {
-        self.apply::<_, c64, D>(|v| v.into())
+        self.apply_with_dimension::<_, c64, D>(|v| v.into())
     }
 }
 
@@ -212,7 +185,7 @@ where
     [(); LAYERS * ROWS * COLS]:,
 {
     pub fn conjugate(self) -> Self {
-        self.apply::<_, E, D>(|v| v.conjugate())
+        self.apply(|v| v.conjugate())
     }
 
     /// Returns the conjugate transpose of this tensor.
@@ -244,8 +217,9 @@ where
 {
     pub fn norm(
         self
-    ) -> Tensor<f64, Dimension<L, M, T, Θ, I, N, J>, 1, 1, 1>
+    ) -> Tensor<f64, <Dimension<L, M, T, Θ, I, N, J> as SqrtDimension>::Output, 1, 1, 1>
     where
+        Dimension<L, M, T, Θ, I, N, J>: SqrtDimension,
         [(); { <() as ConstAdd<L, L>>::OUTPUT } as usize]:,
         [(); { <() as ConstAdd<M, M>>::OUTPUT } as usize]:,
         [(); { <() as ConstAdd<T, T>>::OUTPUT } as usize]:,
@@ -259,14 +233,15 @@ where
 
         // Manually extract the single element and compute sqrt().
         let val:f64 = i.cast::<c64>().raw().sqrt().mag();
-        Scalar::default([val])
+        Tensor::<f64, <Dimension<L, M, T, Θ, I, N, J> as SqrtDimension>::Output, 1, 1, 1>::default([val])
     }
 
     pub fn dist(
         self,
         other: Self,
-    ) -> Tensor<f64, Dimension<L, M, T, Θ, I, N, J>, 1, 1, 1>
+    ) -> Tensor<f64, <Dimension<L, M, T, Θ, I, N, J> as SqrtDimension>::Output, 1, 1, 1>
     where
+        Dimension<L, M, T, Θ, I, N, J>: SqrtDimension,
         [(); 1 * ROWS * 1]:,
         [(); 1 * 1 * ROWS]:,
         [(); { <() as ConstAdd<L, L>>::OUTPUT } as usize]:,
@@ -313,59 +288,81 @@ macro_rules! ip {
     };
 }
 
-// implement all the boolean operations (and, or, xor, not) 
-// they should return a tensor of the same size wth 0s and 1s
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
+// Boolean operations should only work on dimensionless quantities and return dimensionless
+impl<E: TensorElement, const LAYERS: usize, const ROWS: usize, const COLS: usize> 
+Tensor<E, Dimensionless, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
 {
+    /// Logical AND operation - only valid for dimensionless tensors
     pub fn and(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a != E::zero() && b != E::zero() { E::one() } else { E::zero() })
+        self.combine(&other, |a, b| if a != E::zero() && b != E::zero() { E::one() } else { E::zero() })
+    }
+
+    /// Logical OR operation - only valid for dimensionless tensors
+    pub fn or(self, other: Self) -> Self 
+    where
+        E: PartialEq + Copy,
+    {
+        self.combine(&other, |a, b| if a != E::zero() || b != E::zero() { E::one() } else { E::zero() })
+    }
+
+    /// Logical XOR operation - only valid for dimensionless tensors
+    pub fn xor(self, other: Self) -> Self 
+    where
+        E: PartialEq + Copy,
+    {
+        self.combine(&other, |a, b| {
+            let a_nonzero = a != E::zero();
+            let b_nonzero = b != E::zero();
+            if (a_nonzero && !b_nonzero) || (!a_nonzero && b_nonzero) { 
+                E::one() 
+            } else { 
+                E::zero() 
+            }
+        })
+    }
+
+    /// Logical NOT operation - only valid for dimensionless tensors
+    pub fn not(self) -> Self {
+        self.apply(|v| if v == E::zero() { E::one() } else { E::zero() })
     }
 }
 
-impl<E: TensorElement + PartialEq + Copy, D, const LAYERS: usize, const ROWS: usize, const COLS: usize>
+// Comparison operations should only work between tensors of the same dimension
+// and return dimensionless tensors
+impl<E: TensorElement, D, const LAYERS: usize, const ROWS: usize, const COLS: usize> 
 Tensor<E, D, LAYERS, ROWS, COLS>
 where
     [(); LAYERS * ROWS * COLS]:,
 {
-    pub fn or(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a != E::zero() || b != E::zero() { E::one() } else { E::zero() })
+    /// Element-wise equality comparison - returns dimensionless tensor
+    pub fn eq(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a == b { E::one() } else { E::zero() })
     }
-}
 
-// implement all the comparison operations (eq, ne, gt, ge)
-// overload the operators
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    pub fn eq(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a == b { E::one() } else { E::zero() })
+    /// Element-wise inequality comparison - returns dimensionless tensor
+    pub fn ne(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a != b { E::one() } else { E::zero() })
     }
-}
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    pub fn ne(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a != b { E::one() } else { E::zero() })
-    }
-}
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    pub fn gt(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a > b { E::one() } else { E::zero() })
-    }
-}
 
-impl<E: TensorElement,D, const LAYERS: usize, const ROWS: usize, const COLS: usize> Tensor<E,D, LAYERS, ROWS, COLS>
-where
-    [(); LAYERS * ROWS * COLS]:,
-{
-    pub fn ge(self, other: Self) -> Self {
-        self.combine::<_, E, D>(&other, |a, b| if a >= b { E::one() } else { E::zero() })
+    /// Element-wise greater than comparison - returns dimensionless tensor
+    pub fn gt(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a > b { E::one() } else { E::zero() })
+    }
+
+    /// Element-wise greater than or equal comparison - returns dimensionless tensor
+    pub fn ge(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a >= b { E::one() } else { E::zero() })
+    }
+
+    /// Element-wise less than comparison - returns dimensionless tensor
+    pub fn lt(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a < b { E::one() } else { E::zero() })
+    }
+
+    /// Element-wise less than or equal comparison - returns dimensionless tensor
+    pub fn le(self, other: Self) -> Tensor<E, Dimensionless, LAYERS, ROWS, COLS> {
+        self.combine_with_dimension::<_, E, Dimensionless>(&other, |a, b| if a <= b { E::one() } else { E::zero() })
     }
 }
