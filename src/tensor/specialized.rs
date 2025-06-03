@@ -3,7 +3,6 @@ use crate::tensor::base::Tensor;
 use crate::tensor::scalar::Scalar;
 use std::marker::PhantomData;
 use std::ops::{AddAssign, SubAssign};
-use crate::tensor::base::Op;
 
 // Type aliases for common tensor shapes
 pub type Vector<E: TensorElement, D: Clone, const N: usize> = Tensor<E, D, 1, N, 1>
@@ -84,8 +83,7 @@ where
 impl<E: TensorElement + AddAssign, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize>
     AddAssign for Tensor<E, D, LAYERS, ROWS, COLS>
 where
-    [(); LAYERS * ROWS * COLS]:,
-    Op<E, D, LAYERS, ROWS, COLS>: Copy,
+    [(); LAYERS * ROWS * COLS]:
 {
     fn add_assign(&mut self, other: Self) {
         *self = self.add(&other);
@@ -95,8 +93,7 @@ where
 impl<E: TensorElement + SubAssign, D: Clone, const LAYERS: usize, const ROWS: usize, const COLS: usize>
     SubAssign for Tensor<E, D, LAYERS, ROWS, COLS>
 where
-    [(); LAYERS * ROWS * COLS]:,
-    Op<E, D, LAYERS, ROWS, COLS>: Copy,
+    [(); LAYERS * ROWS * COLS]:
 {
     fn sub_assign(&mut self, other: Self) {
         *self = self.sub(&other);

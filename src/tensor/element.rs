@@ -32,7 +32,7 @@ impl WeakMul for f32 {
 
 
 pub trait TensorElement:
- Copy + Clone +
+ Copy + Clone + Send + Sync + 'static +
     std::ops::Add<Output = Self> +
     std::ops::Sub<Output = Self> +
     std::ops::Mul<Output = Self> +

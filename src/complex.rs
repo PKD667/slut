@@ -43,6 +43,33 @@ impl c64 {
         c64::new(r * theta.cos(), r * theta.sin())
     }
 
+    /// Complex exponential function: e^(a + bi) = e^a * (cos(b) + i*sin(b))
+    pub fn exp(self) -> Self {
+        let exp_real = self.a.exp();
+        c64::new(exp_real * self.b.cos(), exp_real * self.b.sin())
+    }
+
+    /// Complex natural logarithm: ln(a + bi) = ln(|z|) + i*arg(z)
+    pub fn ln(self) -> Self {
+        c64::new(self.mag().ln(), self.arg())
+    }
+
+    /// Complex sine function: sin(a + bi) = sin(a)*cosh(b) + i*cos(a)*sinh(b)
+    pub fn sin(self) -> Self {
+        c64::new(
+            self.a.sin() * self.b.cosh(),
+            self.a.cos() * self.b.sinh()
+        )
+    }
+
+    /// Complex cosine function: cos(a + bi) = cos(a)*cosh(b) - i*sin(a)*sinh(b)
+    pub fn cos(self) -> Self {
+        c64::new(
+            self.a.cos() * self.b.cosh(),
+            -self.a.sin() * self.b.sinh()
+        )
+    }
+
 }
 
 // implement zero i ONE

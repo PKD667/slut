@@ -48,7 +48,7 @@ where
         // For casting, we create a new tensor with converted data
         let current_data = self.realize();
         let new_data: [T; LAYERS * ROWS * COLS] = current_data.map(|v| T::from(v.into()));
-        Tensor::from_data(new_data)
+        Tensor::default(new_data)
     }
 
     /// Converts to raw vector using data()

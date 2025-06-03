@@ -3,7 +3,7 @@
 use crate::complex::c64;
 use crate::dimension::{Dimension, InvertDimension, MultiplyDimensions, SqrtDimension, Dimensionless, ConstAdd};
 use crate::tensor::element::TensorElement;
-use crate::tensor::base::{Tensor, Op, OpType, next_tensor_id};
+use crate::tensor::base::{Tensor, Op, OpType,TensorId};
 use std::ops::{Add, Mul, Neg, Sub, Div};
 use std::marker::PhantomData;
 use crate::*;
@@ -58,23 +58,25 @@ where
     {
         // Create a graph node for matrix multiplication
         let tensor = Tensor::<E, <D as MultiplyDimensions<DO>>::Output, LAYERS, ROWS, COLS_USIZE> {
-            id: next_tensor_id(),
+            id: TensorId::next(),
             op: Op {
                 op_type: OpType::MatMul,
                 data: None,
                 inputs: vec![self.id(), other.id()],
+                _phantom: PhantomData,
             },
             _phantom: PhantomData,
         };
         
-        // Register in global graph
-        let any_op = crate::tensor::execution::AnyOp {
-            op_type: OpType::MatMul,
-            inputs: vec![self.id(), other.id()],
-            data: None,
-        };
-        
-        crate::tensor::execution::register_any_op(tensor.id, any_op);
+        // Register in typed graph
+        let inputs_array = [self.id(), other.id()];
+        let input_shapes_array = [(LAYERS, ROWS, COMMON), (LAYERS, COMMON, COLS_USIZE)];
+        crate::tensor::execution::register_typed_tensor_op::<E, <D as MultiplyDimensions<DO>>::Output, LAYERS, ROWS, COLS_USIZE, 2>(
+            tensor.id,
+            &tensor.op,
+            input_shapes_array,
+            inputs_array
+        );
         tensor
     }
 }
@@ -176,23 +178,25 @@ where
     fn div(self, other: &Tensor<E, DO, LAYERS, ROWS, COLS>) -> Self::Output {
         // Create a graph node for division
         let tensor = Tensor::<E, <D as MultiplyDimensions<<DO as InvertDimension>::Output>>::Output, LAYERS, ROWS, COLS> {
-            id: next_tensor_id(),
+            id: TensorId::next(),
             op: Op {
                 op_type: OpType::Div,
                 data: None,
                 inputs: vec![self.id(), other.id()],
+                _phantom: PhantomData,
             },
             _phantom: PhantomData,
         };
         
-        // Register in global graph
-        let any_op = crate::tensor::execution::AnyOp {
-            op_type: OpType::Div,
-            inputs: vec![self.id(), other.id()],
-            data: None,
-        };
-        
-        crate::tensor::execution::register_any_op(tensor.id, any_op);
+        // Register in global graph with proper type information
+        let inputs_array = [self.id(), other.id()];
+        let input_shapes_array = [(LAYERS, ROWS, COLS), (LAYERS, ROWS, COLS)];
+        crate::tensor::execution::register_typed_tensor_op::<E, <D as MultiplyDimensions<<DO as InvertDimension>::Output>>::Output, LAYERS, ROWS, COLS, 2>(
+            tensor.id,
+            &tensor.op,
+            input_shapes_array,
+            inputs_array
+        );
         tensor
     }
 } 

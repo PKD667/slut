@@ -5,6 +5,7 @@ pub mod operations;
 pub mod specialized;
 pub mod natural;
 pub mod fmt;
+pub mod graph;
 pub mod execution;
 pub mod ops;
 
@@ -15,6 +16,7 @@ pub use scalar::*;
 pub use specialized::*;
 pub use natural::*;
 pub use fmt::*;
+pub use graph::*;
 pub use ops::*;
 
 
